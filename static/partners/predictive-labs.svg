@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Predictive Labs</title>
+  <rect width="64" height="64" rx="14" fill="#eff6ff"/>
+  <rect x="15" y="15" width="34" height="34" rx="5" transform="rotate(45 32 32)" fill="#3b82f6"/>
+  <circle cx="32" cy="32" r="7" fill="#dbeafe"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">SAASPASS</title>
+  <circle cx="32" cy="32" r="30" fill="#f8fafc" stroke="#0f1f3d" stroke-width="2"/>
+  <circle cx="32" cy="27" r="8" fill="#0f1f3d"/>
+  <path d="M32 4v15M27 19h10M25 29 12 43m27-14 13 14M18 37l10 8m18-8-10 8" fill="none" stroke="#0f1f3d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M24 28c1 9 4 14 8 18 4-4 7-9 8-18" fill="#fff" stroke="#0f1f3d" stroke-width="2" stroke-linejoin="round"/>
+</svg>

@@ -12,6 +12,26 @@ def test_landing_is_generic_and_public(client):
     assert "OpenMetadata" in response.text
 
 
+def test_partner_grid_has_six_self_hosted_logos(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.text.count("Integration Partner") == 6
+    assert response.text.count('src="/partners/') == 6
+    assert "saaspass.com/_next" not in response.text
+
+    for filename in (
+        "saaspass.svg",
+        "sixty-four.svg",
+        "edi-labs.svg",
+        "predictive-labs.svg",
+        "consistente.svg",
+        "manmouna-technologies.svg",
+    ):
+        logo = client.get(f"/partners/{filename}")
+        assert logo.status_code == 200
+        assert logo.headers["content-type"].startswith("image/svg+xml")
+
+
 def test_public_feature_catalog_explains_adapter_availability(client):
     response = client.get("/features")
     assert response.status_code == 200

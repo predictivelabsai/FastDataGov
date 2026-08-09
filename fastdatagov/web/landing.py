@@ -7,12 +7,12 @@ from fastdatagov.models import UserIdentity
 from fastdatagov.web.components import logo, site_head
 
 PARTNERS = (
-    ("SAASPASS", "https://saaspass.com/", "https://saaspass.com/_next/static/assets/0176aeff921f6359fee88e796be31ace.png", "Full-stack identity and access management spanning MFA, SSO, passwordless access and integration APIs."),
-    ("Sixty Four", "https://sixtyfour.ee/", "https://sixtyfour.ee/favicon.ico", "A senior Tallinn technology studio delivering software, AI consultancy, service design and public-sector programmes."),
-    ("EDI Labs", "https://edilabs.tech/", "https://edilabs.tech/static/favicon.svg", "AI and data engineering for document intelligence, forecasting, geospatial systems and agentic workflows."),
-    ("Predictive Labs", "https://predictivelabs.ai/", "https://predictivelabs.ai/static/favicon.svg", "Auditable AI systems for health, defence, public management, mobility and financial services."),
-    ("Consistente", "https://consistente.tech/", "https://consistente.tech/static/favicon.svg", "Enterprise AI delivery across financial services, healthcare, the public sector and technology."),
-    ("Manmouna Technologies", "https://manmouna.tech/", "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230B1E14'/%3E%3Cpath d='M32 12 52 32 32 52 12 32Z' fill='%2334D399'/%3E%3Cpath d='M32 22 42 32 32 42 22 32Z' fill='%230B1E14'/%3E%3C/svg%3E", "Auditable-by-design AI systems for European public services across health, defence, public management and mobility."),
+    ("SAASPASS", "https://saaspass.com/", "/partners/saaspass.svg", "Full-stack identity and access management spanning MFA, SSO, passwordless access and integration APIs."),
+    ("Sixty Four", "https://sixtyfour.ee/", "/partners/sixty-four.svg", "A senior Tallinn technology studio delivering software, AI consultancy, service design and public-sector programmes."),
+    ("EDI Labs", "https://edilabs.tech/", "/partners/edi-labs.svg", "AI and data engineering for document intelligence, forecasting, geospatial systems and agentic workflows."),
+    ("Predictive Labs", "https://predictivelabs.ai/", "/partners/predictive-labs.svg", "Auditable AI systems for health, defence, public management, mobility and financial services."),
+    ("Consistente", "https://consistente.tech/", "/partners/consistente.svg", "Enterprise AI delivery across financial services, healthcare, the public sector and technology."),
+    ("Manmouna Technologies", "https://manmouna.tech/", "/partners/manmouna-technologies.svg", "Auditable-by-design AI systems for European public services across health, defence, public management and mobility."),
 )
 
 
@@ -168,7 +168,7 @@ def _partner_section():
     return Section(
         Div(Span("Partners", cls="eyebrow"), H2("Connect with trusted integration specialists."), P("Identity, software delivery, data engineering and applied-AI expertise for FastSME implementations."), cls="section-lead"),
         Div(*[
-            A(Div(Img(src=logo_url, alt=f"{name} logo", loading="lazy"), Span("Integration Partner"), cls="partner-card-head"), H3(name), P(description), Small("Visit website ↗"), href=url, target="_blank", rel="noopener noreferrer", cls="partner-card")
+            A(Div(Img(src=logo_url, alt=f"{name} logo", loading="lazy", decoding="async", width="64", height="64"), Span("Integration Partner"), cls="partner-card-head"), H3(name), P(description), Small("Visit website ↗"), href=url, target="_blank", rel="noopener noreferrer", cls="partner-card")
             for name, url, logo_url, description in PARTNERS
         ], cls="partner-grid"),
         id="partners", cls="landing-section partner-section",

@@ -112,14 +112,14 @@ a { color: inherit; }
 .comparison-section { background: #f8fafc; border-block: 1px solid var(--line); }
 .partner-section { scroll-margin-top: 80px; }
 .partner-section .section-lead { max-width: 760px; }
-.partner-grid { max-width: 1180px; margin: 36px auto 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
-.partner-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: #fff; text-decoration: none; transition: transform .18s, border-color .18s, box-shadow .18s; }
+.partner-grid { max-width: 1180px; margin: 36px auto 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.partner-card { min-width: 0; padding: 24px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: #fff; text-decoration: none; transition: transform .18s, border-color .18s, box-shadow .18s; }
 .partner-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: var(--shadow); }
 .partner-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.partner-card-head img { width: 46px; height: 46px; object-fit: contain; }
+.partner-card-head img { display: block; width: 64px; height: 64px; padding: 7px; border: 1px solid var(--line); border-radius: 16px; background: #f8fafc; object-fit: contain; }
 .partner-card-head span { color: var(--accent-dark); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
 .partner-card h3 { margin: 18px 0 8px; font-size: 18px; }
-.partner-card p { min-height: 80px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.partner-card p { min-height: 62px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .partner-card small { display: block; margin-top: 16px; color: var(--accent-dark); font-weight: 750; }
 .comparison-scroll { max-width: 1180px; margin: 52px auto 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 20px; background: #fff; box-shadow: var(--shadow); }
 .comparison-table { width: 100%; min-width: 1480px; border-collapse: collapse; }

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Manmouna Technologies</title>
+  <rect width="64" height="64" rx="14" fill="#0b1e14"/>
+  <path d="M32 9 55 32 32 55 9 32Z" fill="#34d399"/>
+  <path d="m32 21 11 11-11 11-11-11Z" fill="#0b1e14"/>
+</svg>
