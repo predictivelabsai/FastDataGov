@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fastdatagov"
+version = "0.1.0"
+description = "Open-source, business-friendly data governance"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Predictive Labs Ltd" }]
+dependencies = [
+  "python-fasthtml>=0.12.0,<1.0",
+  "uvicorn[standard]>=0.30.0,<1.0",
+  "pydantic>=2.8.0,<3.0",
+  "pydantic-settings>=2.4.0,<3.0",
+  "python-dotenv>=1.0.0,<2.0",
+  "psycopg[binary,pool]>=3.2.0,<4.0",
+  "authlib>=1.3.1,<2.0",
+  "httpx>=0.27.0,<1.0",
+]
+
+[project.optional-dependencies]
+snowflake = ["snowflake-connector-python>=3.12.0,<5.0"]
+dev = ["pytest>=8.0.0,<9.0", "pytest-asyncio>=0.23.0,<1.0"]
+
+[project.scripts]
+fastdatagov = "fastdatagov.main:run"
+fastdatagov-migrate = "fastdatagov.db.migrate:main"
+
+[tool.setuptools.packages.find]
+include = ["fastdatagov*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

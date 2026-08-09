@@ -117,6 +117,17 @@ ipython_config.py
 .pdm-python
 .pdm-build/
 
+# Local runtime configuration and artifacts
+.env
+data/
+output/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+.playwright-cli/
+
 # pixi
 #   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
 # pixi.lock

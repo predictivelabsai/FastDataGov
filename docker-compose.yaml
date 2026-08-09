@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: fastdatagov
+      POSTGRES_USER: fastdatagov
+      POSTGRES_PASSWORD: fastdatagov
+    volumes:
+      - fastdatagov-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fastdatagov"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REPOSITORY_MODE: postgres
+      DATABASE_URL: postgresql://fastdatagov:fastdatagov@postgres:5432/fastdatagov
+    ports:
+      - "5062:5062"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: ["python", "-m", "fastdatagov.jobs.worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REPOSITORY_MODE: postgres
+      DATABASE_URL: postgresql://fastdatagov:fastdatagov@postgres:5432/fastdatagov
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  scheduler:
+    build: .
+    command: ["python", "-m", "fastdatagov.jobs.scheduler"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REPOSITORY_MODE: postgres
+      DATABASE_URL: postgresql://fastdatagov:fastdatagov@postgres:5432/fastdatagov
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+volumes:
+  fastdatagov-postgres:
