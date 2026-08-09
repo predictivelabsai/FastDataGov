@@ -51,15 +51,25 @@ mode.
 ## PostgreSQL mode
 
 ```bash
-export DATABASE_URL=postgresql://fastdatagov:fastdatagov@localhost:5432/fastdatagov
+export DB_URL=postgresql://fastdatagov:fastdatagov@localhost:5432/fastdatagov
+export DB_SCHEMA=fast_datagov
 export REPOSITORY_MODE=postgres
 python -m fastdatagov.db.migrate
 python -m fastdatagov.synthetic.seed
 python main.py
 ```
 
-All database objects live in the `fastdatagov` schema. Migrations are
+All database objects live in the `fast_datagov` schema. Migrations are
 append-only and recorded in `fast_datagov.schema_migrations`.
+
+## Public product pages
+
+The public landing page explains FastDataGov's operating model and shipped
+capabilities. `/features` gives explicit availability for every core feature
+and priority adapter; `/compare` provides a dated, source-linked comparison
+with OpenMetadata, DataHub, Atlan, Collibra, and Alation. Comparison claims are
+deliberately limited to official vendor documentation and clearly separate
+software licensing from implementation and infrastructure costs.
 
 ## Microsoft Entra ID
 
