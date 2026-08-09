@@ -7,6 +7,31 @@ def test_landing_is_generic_and_public(client):
     assert "Know which data to trust" in response.text
     assert "Open-source data governance" in response.text
     assert "Sign in" in response.text
+    assert 'href="/features"' in response.text
+    assert 'href="/compare"' in response.text
+    assert "OpenMetadata" in response.text
+
+
+def test_public_feature_catalog_explains_adapter_availability(client):
+    response = client.get("/features")
+    assert response.status_code == 200
+    assert "Unified data catalog" in response.text
+    assert "Snowflake adapter" in response.text
+    assert "Pilot-ready" in response.text
+    assert "Contract-ready" in response.text
+    assert "Free · MIT" in response.text
+
+
+def test_public_comparison_is_source_linked_and_candid(client):
+    response = client.get("/compare")
+    assert response.status_code == 200
+    for platform in ("FastDataGov", "OpenMetadata", "DataHub", "Atlan", "Collibra", "Alation"):
+        assert platform in response.text
+    assert "9 August 2026" in response.text
+    assert "official product documentation" in response.text
+    assert "Fabric and Databricks transports are contract-ready" in response.text
+    assert 'rel="canonical"' in response.text
+    assert 'href="http://localhost:5062/compare"' in response.text
 
 
 def test_health_and_readiness_are_public(client):

@@ -13,7 +13,7 @@ from fastdatagov.config import settings
 from fastdatagov.repository import repository
 from fastdatagov.web.api import routes as api_routes
 from fastdatagov.web.auth_routes import routes as auth_routes
-from fastdatagov.web.landing import landing_page
+from fastdatagov.web.landing import comparison_page, features_page, landing_page
 from fastdatagov.web.routes import routes as app_routes
 from fastdatagov.web.security import SecurityHeadersMiddleware
 
@@ -27,6 +27,8 @@ beforeware = Beforeware(
         r"/healthz",
         r"/readyz",
         r"^/$",
+        r"^/features$",
+        r"^/compare$",
         r"/auth/.*",
     ],
 )
@@ -69,6 +71,16 @@ app.add_exception_handler(PermissionError,permission_error)
 @rt("/", methods=["GET"])
 def home(sess):
     return landing_page(current_identity(sess))
+
+
+@rt("/features", methods=["GET"])
+def features(sess):
+    return features_page(current_identity(sess))
+
+
+@rt("/compare", methods=["GET"])
+def compare(sess):
+    return comparison_page(current_identity(sess))
 
 
 @rt("/healthz", methods=["GET"])

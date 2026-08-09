@@ -6,13 +6,24 @@ from fastdatagov.models import Asset, UserIdentity
 from fastdatagov.config import settings
 
 
-def site_head(title: str, description: str = "Open-source data governance"):
+def site_head(title: str, description: str = "Open-source data governance", canonical_path: str = ""):
+    canonical_url = settings().base_url.rstrip("/") + canonical_path if canonical_path else ""
+    full_title = f"{title} · FastDataGov"
+    discovery_meta = (
+        Meta(property="og:type", content="website"),
+        Meta(property="og:title", content=full_title),
+        Meta(property="og:description", content=description),
+        Meta(property="og:url", content=canonical_url),
+        Meta(name="twitter:card", content="summary"),
+        Link(rel="canonical", href=canonical_url),
+    ) if canonical_url else ()
     return Head(
         Meta(charset="utf-8"),
         Meta(name="viewport", content="width=device-width, initial-scale=1"),
         Meta(name="description", content=description),
         Meta(name="theme-color", content="#ffffff"),
-        Title(f"{title} · FastDataGov"),
+        *discovery_meta,
+        Title(full_title),
         Link(rel="icon", href="/favicon.svg", type="image/svg+xml"),
         Link(rel="stylesheet", href="/styles.css"),
         Script(src="/app.js", defer=True),
