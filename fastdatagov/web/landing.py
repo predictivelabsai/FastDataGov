@@ -6,6 +6,14 @@ from fasthtml.common import *
 from fastdatagov.models import UserIdentity
 from fastdatagov.web.components import logo, site_head
 
+PARTNERS = (
+    ("SAASPASS", "https://saaspass.com/", "https://saaspass.com/_next/static/assets/0176aeff921f6359fee88e796be31ace.png", "Full-stack identity and access management spanning MFA, SSO, passwordless access and integration APIs."),
+    ("Sixty Four", "https://sixtyfour.ee/", "https://sixtyfour.ee/favicon.ico", "A senior Tallinn technology studio delivering software, AI consultancy, service design and public-sector programmes."),
+    ("EDI Labs", "https://edilabs.tech/", "https://edilabs.tech/static/favicon.svg", "AI and data engineering for document intelligence, forecasting, geospatial systems and agentic workflows."),
+    ("Predictive Labs", "https://predictivelabs.ai/", "https://predictivelabs.ai/static/favicon.svg", "Auditable AI systems for health, defence, public management, mobility and financial services."),
+    ("Consistente", "https://consistente.tech/", "https://consistente.tech/static/favicon.svg", "Enterprise AI delivery across financial services, healthcare, the public sector and technology."),
+)
+
 
 FEATURE_CATALOG = (
     ("Unified data catalog", "Search technical and business metadata across connected platforms with owners, domains, classifications, freshness, and trust signals.", "Available"),
@@ -103,6 +111,7 @@ def _public_nav(identity: UserIdentity | None = None):
             A("Features", href="/features"),
             A("How we compare", href="/compare"),
             A("Architecture", href="/#architecture"),
+            A("Partners", href="/#partners"),
             A("GitHub", href="https://github.com/predictivelabsai/FastDataGov", target="_blank", rel="noreferrer"),
             aria_label="Public navigation",
         ),
@@ -151,6 +160,17 @@ def _comparison_table(compact: bool = False):
             cls="comparison-table" + (" compact" if compact else ""),
         ),
         cls="comparison-scroll",
+    )
+
+
+def _partner_section():
+    return Section(
+        Div(Span("Partners", cls="eyebrow"), H2("Connect with trusted integration specialists."), P("Identity, software delivery, data engineering and applied-AI expertise for FastSME implementations."), cls="section-lead"),
+        Div(*[
+            A(Div(Img(src=logo_url, alt=f"{name} logo", loading="lazy"), Span("Integration Partner"), cls="partner-card-head"), H3(name), P(description), Small("Visit website ↗"), href=url, target="_blank", rel="noopener noreferrer", cls="partner-card")
+            for name, url, logo_url, description in PARTNERS
+        ], cls="partner-grid"),
+        id="partners", cls="landing-section partner-section",
     )
 
 
@@ -213,6 +233,7 @@ def landing_page(identity: UserIdentity | None = None):
                     Div(A("Read the full source-linked comparison →", href="/compare", cls="inline-link"), cls="section-action"),
                     cls="landing-section comparison-section",
                 ),
+                _partner_section(),
                 Section(Span("Built for accountable reuse", cls="eyebrow"), H2("Make trusted data the easiest data to find."), A(primary_label, href=primary_href, cls="button button-primary"), cls="landing-cta"),
             ),
             _public_footer(),
