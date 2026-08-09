@@ -59,7 +59,7 @@ python main.py
 ```
 
 All database objects live in the `fastdatagov` schema. Migrations are
-append-only and recorded in `fastdatagov.schema_migrations`.
+append-only and recorded in `fast_datagov.schema_migrations`.
 
 ## Microsoft Entra ID
 

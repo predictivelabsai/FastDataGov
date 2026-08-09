@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     repository_mode: str = Field(default="demo", alias="REPOSITORY_MODE")
     database_url: str = Field(
         default="postgresql://fastdatagov:fastdatagov@localhost:5432/fastdatagov",
-        alias="DATABASE_URL",
+        validation_alias=AliasChoices("DB_URL", "DATABASE_URL"),
+        serialization_alias="DB_URL",
     )
+    database_schema: str = Field(default="fast_datagov", alias="DB_SCHEMA")
     database_pool_min: int = Field(default=1,alias="DATABASE_POOL_MIN")
     database_pool_max: int = Field(default=10,alias="DATABASE_POOL_MAX")
 
@@ -67,6 +69,14 @@ class Settings(BaseSettings):
         value = value.lower().strip()
         if value not in {"dev", "entra", "google"}:
             raise ValueError("AUTH_MODE must be dev, entra or google")
+        return value
+
+    @field_validator("database_schema")
+    @classmethod
+    def validate_database_schema(cls, value: str) -> str:
+        value = value.strip()
+        if value != "fast_datagov":
+            raise ValueError("DB_SCHEMA must be fast_datagov")
         return value
 
     @model_validator(mode="after")

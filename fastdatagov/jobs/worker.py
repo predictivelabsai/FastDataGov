@@ -21,12 +21,12 @@ def claim_job() -> dict | None:
         cursor.execute(
             """
             WITH candidate AS (
-                SELECT id FROM fastdatagov.jobs
+                SELECT id FROM fast_datagov.jobs
                 WHERE status='queued' AND run_after <= now() AND attempts < max_attempts
                 ORDER BY run_after, id
                 FOR UPDATE SKIP LOCKED LIMIT 1
             )
-            UPDATE fastdatagov.jobs j SET status='running', locked_by=%s, locked_at=now(), attempts=attempts+1
+            UPDATE fast_datagov.jobs j SET status='running', locked_by=%s, locked_at=now(), attempts=attempts+1
             FROM candidate WHERE j.id=candidate.id RETURNING j.*
             """,
             (WORKER_ID,),
@@ -38,7 +38,7 @@ def claim_job() -> dict | None:
 
 def finish_job(job_id: int) -> None:
     with connect() as connection, connection.cursor() as cursor:
-        cursor.execute("UPDATE fastdatagov.jobs SET status='succeeded', completed_at=now() WHERE id=%s", (job_id,))
+        cursor.execute("UPDATE fast_datagov.jobs SET status='succeeded', completed_at=now() WHERE id=%s", (job_id,))
         connection.commit()
 
 
@@ -46,7 +46,7 @@ def fail_job(job: dict, error: Exception) -> None:
     terminal = job["attempts"] >= job["max_attempts"]
     with connect() as connection, connection.cursor() as cursor:
         cursor.execute(
-            "UPDATE fastdatagov.jobs SET status=%s, last_error=%s, run_after=now() + make_interval(secs => %s), locked_by=NULL, locked_at=NULL WHERE id=%s",
+            "UPDATE fast_datagov.jobs SET status=%s, last_error=%s, run_after=now() + make_interval(secs => %s), locked_by=NULL, locked_at=NULL WHERE id=%s",
             ("failed" if terminal else "queued", str(error)[:2000], min(300, 2 ** job["attempts"]), job["id"]),
         )
         connection.commit()

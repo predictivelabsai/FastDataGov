@@ -40,3 +40,18 @@ def test_google_access_lists_extend_generic_access_lists():
     assert configured.allowed_domains == {"fastsme.com"}
     assert configured.allowed_users == {"owner@example.com"}
     assert configured.governance_admins == {"lead@example.com"}
+
+
+def test_db_url_is_preferred_and_schema_is_isolated():
+    configured = Settings(
+        DB_URL="postgresql://preferred.invalid/governance",
+        DATABASE_URL="postgresql://legacy.invalid/governance",
+        DB_SCHEMA="fast_datagov",
+    )
+    assert configured.database_url == "postgresql://preferred.invalid/governance"
+    assert configured.database_schema == "fast_datagov"
+
+
+def test_database_url_remains_a_compatible_alias():
+    configured = Settings(DATABASE_URL="postgresql://legacy.invalid/governance")
+    assert configured.database_url == "postgresql://legacy.invalid/governance"

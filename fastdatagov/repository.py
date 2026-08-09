@@ -33,15 +33,15 @@ from fastdatagov.synthetic.data import ADAPTERS, ASSETS, AUDIT, GLOSSARY, LINEAG
 
 def _queue_notifications(cursor, event_type: str, recipient: str, subject: str, body: str, payload: dict | None = None) -> None:
     cursor.execute(
-        """INSERT INTO fastdatagov.notification_outbox (channel_id,event_type,recipient,subject,body,payload)
-           SELECT id,%s,%s,%s,%s,%s FROM fastdatagov.notification_channels
+        """INSERT INTO fast_datagov.notification_outbox (channel_id,event_type,recipient,subject,body,payload)
+           SELECT id,%s,%s,%s,%s,%s FROM fast_datagov.notification_channels
            WHERE enabled AND (cardinality(events)=0 OR %s=ANY(events))""",
         (event_type,recipient or None,subject,body,Jsonb(payload or {}),event_type),
     )
 
 
 def _recompute_trust(cursor, asset_id: int) -> None:
-    cursor.execute("""UPDATE fastdatagov.assets SET trust_score=least(100,
+    cursor.execute("""UPDATE fast_datagov.assets SET trust_score=least(100,
         coalesce(quality_score,0)*0.55 + CASE certification_status WHEN 'certified' THEN 15 WHEN 'verified' THEN 10 ELSE 0 END +
         CASE WHEN owner_email IS NOT NULL AND owner_email<>'' THEN 10 ELSE 0 END +
         CASE WHEN steward_email IS NOT NULL AND steward_email<>'' THEN 10 ELSE 0 END +
@@ -485,9 +485,9 @@ class PostgresRepository:
             return "", ()
         principals = [identity.email, *identity.groups]
         return (
-            f" AND (NOT EXISTS (SELECT 1 FROM fastdatagov.asset_visibility av0 WHERE av0.asset_id={alias}.id) "
-            f"OR EXISTS (SELECT 1 FROM fastdatagov.asset_visibility av WHERE av.asset_id={alias}.id "
-            f"AND (av.principal_type='public' OR av.principal_key = ANY(%s) OR EXISTS (SELECT 1 FROM fastdatagov.principal_aliases pa WHERE pa.platform_key={alias}.platform_key AND pa.source_principal_key=av.principal_key AND ((pa.identity_principal_type='user' AND pa.identity_key=%s) OR (pa.identity_principal_type='group' AND pa.identity_key=ANY(%s)))))))",
+            f" AND (NOT EXISTS (SELECT 1 FROM fast_datagov.asset_visibility av0 WHERE av0.asset_id={alias}.id) "
+            f"OR EXISTS (SELECT 1 FROM fast_datagov.asset_visibility av WHERE av.asset_id={alias}.id "
+            f"AND (av.principal_type='public' OR av.principal_key = ANY(%s) OR EXISTS (SELECT 1 FROM fast_datagov.principal_aliases pa WHERE pa.platform_key={alias}.platform_key AND pa.source_principal_key=av.principal_key AND ((pa.identity_principal_type='user' AND pa.identity_key=%s) OR (pa.identity_principal_type='group' AND pa.identity_key=ANY(%s)))))))",
             (principals,identity.email,list(identity.groups)),
         )
 
@@ -509,7 +509,7 @@ class PostgresRepository:
         conditions = ["a.deleted_at IS NULL"]
         params: list = []
         if query:
-            conditions.append("(to_tsvector('english', coalesce(a.name,'') || ' ' || coalesce(a.qualified_name,'') || ' ' || coalesce(a.description,'') || ' ' || coalesce(a.business_description,'')) @@ plainto_tsquery('english', %s) OR EXISTS (SELECT 1 FROM fastdatagov.asset_tags sat JOIN fastdatagov.tags st ON st.id=sat.tag_id WHERE sat.asset_id=a.id AND to_tsvector('english',coalesce(st.label,'')||' '||coalesce(st.key,''))@@plainto_tsquery('english',%s)) OR EXISTS (SELECT 1 FROM fastdatagov.asset_terms satm JOIN fastdatagov.glossary_terms sgt ON sgt.id=satm.term_id WHERE satm.asset_id=a.id AND to_tsvector('english',coalesce(sgt.name,'')||' '||coalesce(sgt.definition,''))@@plainto_tsquery('english',%s)) OR EXISTS (SELECT 1 FROM fastdatagov.asset_fields saf WHERE saf.asset_id=a.id AND to_tsvector('english',coalesce(saf.name,'')||' '||coalesce(saf.description,'')||' '||coalesce(saf.business_description,'')||' '||coalesce(saf.classification,''))@@plainto_tsquery('english',%s)))")
+            conditions.append("(to_tsvector('english', coalesce(a.name,'') || ' ' || coalesce(a.qualified_name,'') || ' ' || coalesce(a.description,'') || ' ' || coalesce(a.business_description,'')) @@ plainto_tsquery('english', %s) OR EXISTS (SELECT 1 FROM fast_datagov.asset_tags sat JOIN fast_datagov.tags st ON st.id=sat.tag_id WHERE sat.asset_id=a.id AND to_tsvector('english',coalesce(st.label,'')||' '||coalesce(st.key,''))@@plainto_tsquery('english',%s)) OR EXISTS (SELECT 1 FROM fast_datagov.asset_terms satm JOIN fast_datagov.glossary_terms sgt ON sgt.id=satm.term_id WHERE satm.asset_id=a.id AND to_tsvector('english',coalesce(sgt.name,'')||' '||coalesce(sgt.definition,''))@@plainto_tsquery('english',%s)) OR EXISTS (SELECT 1 FROM fast_datagov.asset_fields saf WHERE saf.asset_id=a.id AND to_tsvector('english',coalesce(saf.name,'')||' '||coalesce(saf.description,'')||' '||coalesce(saf.business_description,'')||' '||coalesce(saf.classification,''))@@plainto_tsquery('english',%s)))")
             params.extend((query,query,query,query))
         if platform:
             conditions.append("lower(a.platform_key)=lower(%s)")
@@ -535,17 +535,17 @@ class PostgresRepository:
             SELECT a.*, d.name AS domain_name,
                    coalesce(array_agg(DISTINCT CASE WHEN atag.tag_value<>'' THEN t.label||': '||atag.tag_value ELSE t.label END) FILTER (WHERE t.id IS NOT NULL), '{}') AS tags,
                    coalesce(array_agg(DISTINCT gt.name) FILTER (WHERE gt.id IS NOT NULL), '{}') AS terms,
-                   coalesce((SELECT sum(u.query_count) FROM fastdatagov.usage_rollups u
+                   coalesce((SELECT sum(u.query_count) FROM fast_datagov.usage_rollups u
                              WHERE u.asset_id=a.id AND u.usage_date >= current_date - 30), 0) AS usage_30d,
-                   coalesce((SELECT certified_at::text FROM fastdatagov.certifications c WHERE c.asset_id=a.id ORDER BY certified_at DESC LIMIT 1),'') certified_at,
-                   coalesce((SELECT expires_at::text FROM fastdatagov.certifications c WHERE c.asset_id=a.id ORDER BY certified_at DESC LIMIT 1),'') certification_expires,
-                   coalesce((SELECT attested_at::text FROM fastdatagov.accountability_assignments aa WHERE aa.scope_type='asset' AND aa.scope_id=a.id AND aa.responsibility='owner' ORDER BY attested_at DESC NULLS LAST LIMIT 1),'') owner_attested_at
-            FROM fastdatagov.assets a
-            LEFT JOIN fastdatagov.domains d ON d.id=a.domain_id
-            LEFT JOIN fastdatagov.asset_tags atag ON atag.asset_id=a.id
-            LEFT JOIN fastdatagov.tags t ON t.id=atag.tag_id
-            LEFT JOIN fastdatagov.asset_terms aterm ON aterm.asset_id=a.id
-            LEFT JOIN fastdatagov.glossary_terms gt ON gt.id=aterm.term_id
+                   coalesce((SELECT certified_at::text FROM fast_datagov.certifications c WHERE c.asset_id=a.id ORDER BY certified_at DESC LIMIT 1),'') certified_at,
+                   coalesce((SELECT expires_at::text FROM fast_datagov.certifications c WHERE c.asset_id=a.id ORDER BY certified_at DESC LIMIT 1),'') certification_expires,
+                   coalesce((SELECT attested_at::text FROM fast_datagov.accountability_assignments aa WHERE aa.scope_type='asset' AND aa.scope_id=a.id AND aa.responsibility='owner' ORDER BY attested_at DESC NULLS LAST LIMIT 1),'') owner_attested_at
+            FROM fast_datagov.assets a
+            LEFT JOIN fast_datagov.domains d ON d.id=a.domain_id
+            LEFT JOIN fast_datagov.asset_tags atag ON atag.asset_id=a.id
+            LEFT JOIN fast_datagov.tags t ON t.id=atag.tag_id
+            LEFT JOIN fast_datagov.asset_terms aterm ON aterm.asset_id=a.id
+            LEFT JOIN fast_datagov.glossary_terms gt ON gt.id=aterm.term_id
             WHERE """ + " AND ".join(conditions) + visibility_sql + """
             GROUP BY a.id, d.name
             ORDER BY a.trust_score DESC NULLS LAST, a.name
@@ -560,7 +560,7 @@ class PostgresRepository:
             return None
         asset = assets[0]
         field_rows = fetch_all(
-            "SELECT name, data_type, description, classification, nullable, business_description FROM fastdatagov.asset_fields WHERE asset_id=%s ORDER BY ordinal NULLS LAST, id",
+            "SELECT name, data_type, description, classification, nullable, business_description FROM fast_datagov.asset_fields WHERE asset_id=%s ORDER BY ordinal NULLS LAST, id",
             (asset_id,),
         )
         asset.fields = [AssetField(**row) for row in field_rows]
@@ -568,7 +568,7 @@ class PostgresRepository:
 
     def catalog_facets(self,identity=None):
         visibility_sql,visibility_params=self._visibility(identity,"a")
-        row=fetch_one("SELECT coalesce(array_agg(DISTINCT initcap(a.platform_key)) FILTER (WHERE a.platform_key IS NOT NULL),'{}') platforms,coalesce(array_agg(DISTINCT d.name) FILTER (WHERE d.name IS NOT NULL),'{}') domains,coalesce(array_agg(DISTINCT a.owner_email) FILTER (WHERE a.owner_email IS NOT NULL AND a.owner_email<>''),'{}') owners,coalesce(array_agg(DISTINCT a.sensitivity) FILTER (WHERE a.sensitivity IS NOT NULL),'{}') sensitivities FROM fastdatagov.assets a LEFT JOIN fastdatagov.domains d ON d.id=a.domain_id WHERE a.deleted_at IS NULL"+visibility_sql,visibility_params)
+        row=fetch_one("SELECT coalesce(array_agg(DISTINCT initcap(a.platform_key)) FILTER (WHERE a.platform_key IS NOT NULL),'{}') platforms,coalesce(array_agg(DISTINCT d.name) FILTER (WHERE d.name IS NOT NULL),'{}') domains,coalesce(array_agg(DISTINCT a.owner_email) FILTER (WHERE a.owner_email IS NOT NULL AND a.owner_email<>''),'{}') owners,coalesce(array_agg(DISTINCT a.sensitivity) FILTER (WHERE a.sensitivity IS NOT NULL),'{}') sensitivities FROM fast_datagov.assets a LEFT JOIN fast_datagov.domains d ON d.id=a.domain_id WHERE a.deleted_at IS NULL"+visibility_sql,visibility_params)
         return {key:sorted(row[key]) for key in ("platforms","domains","owners","sensitivities")}
 
     @staticmethod
@@ -601,11 +601,11 @@ class PostgresRepository:
         params.extend(target_params)
         rows = fetch_all(
             "SELECT le.id, le.source_asset_id, le.target_asset_id, le.operation, le.evidence_type, le.confidence, coalesce(sf.name,'') source_field, coalesce(tf.name,'') target_field "
-            "FROM fastdatagov.lineage_edges le "
-            "JOIN fastdatagov.assets source_asset ON source_asset.id=le.source_asset_id "
-            "JOIN fastdatagov.assets target_asset ON target_asset.id=le.target_asset_id "
-            "LEFT JOIN fastdatagov.asset_fields sf ON sf.id=le.source_field_id "
-            "LEFT JOIN fastdatagov.asset_fields tf ON tf.id=le.target_field_id "
+            "FROM fast_datagov.lineage_edges le "
+            "JOIN fast_datagov.assets source_asset ON source_asset.id=le.source_asset_id "
+            "JOIN fast_datagov.assets target_asset ON target_asset.id=le.target_asset_id "
+            "LEFT JOIN fast_datagov.asset_fields sf ON sf.id=le.source_field_id "
+            "LEFT JOIN fast_datagov.asset_fields tf ON tf.id=le.target_field_id "
             "WHERE " + " AND ".join(conditions) + source_visibility + target_visibility + " ORDER BY le.id",
             tuple(params),
         )
@@ -618,10 +618,10 @@ class PostgresRepository:
             SELECT qr.*, coalesce(qrun.status, 'queued') AS run_status,
                    coalesce(qrun.score, 0) AS score, coalesce(qrun.completed_at, qrun.started_at) AS last_run,
                    coalesce((SELECT array_agg(recent.score ORDER BY recent.started_at) FROM
-                       (SELECT score,started_at FROM fastdatagov.quality_runs history WHERE history.rule_id=qr.id AND score IS NOT NULL ORDER BY started_at DESC LIMIT 7) recent), '{}') trend
-            FROM fastdatagov.quality_rules qr
-            JOIN fastdatagov.assets a ON a.id=qr.asset_id
-            LEFT JOIN LATERAL (SELECT * FROM fastdatagov.quality_runs r WHERE r.rule_id=qr.id ORDER BY r.started_at DESC LIMIT 1) qrun ON true
+                       (SELECT score,started_at FROM fast_datagov.quality_runs history WHERE history.rule_id=qr.id AND score IS NOT NULL ORDER BY started_at DESC LIMIT 7) recent), '{}') trend
+            FROM fast_datagov.quality_rules qr
+            JOIN fast_datagov.assets a ON a.id=qr.asset_id
+            LEFT JOIN LATERAL (SELECT * FROM fast_datagov.quality_runs r WHERE r.rule_id=qr.id ORDER BY r.started_at DESC LIMIT 1) qrun ON true
             WHERE a.deleted_at IS NULL
             """ + visibility_sql + " ORDER BY qr.severity, qr.name",
             visibility_params,
@@ -638,7 +638,7 @@ class PostgresRepository:
             conditions.append("(w.assignee_email=%s OR w.requester_email=%s)"); params.extend((identity.email,identity.email))
         visibility_sql, visibility_params = self._visibility(identity)
         params.extend(visibility_params)
-        rows = fetch_all("SELECT w.* FROM fastdatagov.work_items w LEFT JOIN fastdatagov.assets a ON a.id=w.asset_id WHERE " + " AND ".join(conditions) + " AND (w.asset_id IS NULL OR (true" + visibility_sql + ")) ORDER BY CASE w.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, w.due_at NULLS LAST", tuple(params))
+        rows = fetch_all("SELECT w.* FROM fast_datagov.work_items w LEFT JOIN fast_datagov.assets a ON a.id=w.asset_id WHERE " + " AND ".join(conditions) + " AND (w.asset_id IS NULL OR (true" + visibility_sql + ")) ORDER BY CASE w.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, w.due_at NULLS LAST", tuple(params))
         return [WorkItem(row["id"], row["kind"], row.get("asset_id") or 0, row["title"], row["status"], row["priority"], row.get("assignee_email") or "", str(row.get("due_at") or "No due date"), row.get("description") or "") for row in rows]
 
     def update_work_item(self, item_id: int, status: str, actor: UserIdentity) -> WorkItem | None:
@@ -652,9 +652,9 @@ class PostgresRepository:
             definition=next((w for w in self.workflow_definitions() if w["kind"]==visible.kind),None)
             if definition and not actor.can(definition["approval_role"]): raise PermissionError("Approval role is required")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("UPDATE fastdatagov.work_items SET status=%s, updated_at=now() WHERE id=%s", (status, item_id))
-            cursor.execute("INSERT INTO fastdatagov.work_item_events (work_item_id,actor_email,event_type,from_status,to_status) VALUES (%s,%s,'status_changed',%s,%s)",(item_id,actor.email,visible.status,status))
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject, action, entity_type, entity_key, before_data, after_data) VALUES (%s, 'workflow.status_changed', 'work_item', %s, jsonb_build_object('status', %s::text), jsonb_build_object('status', %s::text))", (actor.subject, str(item_id), visible.status, status))
+            cursor.execute("UPDATE fast_datagov.work_items SET status=%s, updated_at=now() WHERE id=%s", (status, item_id))
+            cursor.execute("INSERT INTO fast_datagov.work_item_events (work_item_id,actor_email,event_type,from_status,to_status) VALUES (%s,%s,'status_changed',%s,%s)",(item_id,actor.email,visible.status,status))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject, action, entity_type, entity_key, before_data, after_data) VALUES (%s, 'workflow.status_changed', 'work_item', %s, jsonb_build_object('status', %s::text), jsonb_build_object('status', %s::text))", (actor.subject, str(item_id), visible.status, status))
             _queue_notifications(cursor,"workflow.status_changed",visible.assignee,f"Governance work {status.replace('_',' ')}",visible.title,{"work_item_id":item_id,"status":status})
             connection.commit()
         return next((item for item in self.work_items(identity=actor) if item.id == item_id), None)
@@ -675,13 +675,13 @@ class PostgresRepository:
         assignee = asset.owner if kind in {"access", "attestation", "certification"} else asset.steward
         assignee=assignee or settings().governance_fallback_assignee
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT due_days FROM fastdatagov.workflow_definitions WHERE kind=%s AND enabled",(kind,)); definition=cursor.fetchone()
+            cursor.execute("SELECT due_days FROM fast_datagov.workflow_definitions WHERE kind=%s AND enabled",(kind,)); definition=cursor.fetchone()
             if not definition: raise ValueError("Workflow is disabled")
-            cursor.execute("INSERT INTO fastdatagov.work_items (kind,asset_id,title,description,requester_email,assignee_email,due_at) VALUES (%s,%s,%s,%s,%s,%s,now()+(%s||' days')::interval) RETURNING id", (kind, asset_id, titles[kind], f"Requested by {actor.email} from the asset workspace.", actor.email, assignee,definition[0]))
+            cursor.execute("INSERT INTO fast_datagov.work_items (kind,asset_id,title,description,requester_email,assignee_email,due_at) VALUES (%s,%s,%s,%s,%s,%s,now()+(%s||' days')::interval) RETURNING id", (kind, asset_id, titles[kind], f"Requested by {actor.email} from the asset workspace.", actor.email, assignee,definition[0]))
             item_id = cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.work_item_events (work_item_id,actor_email,event_type,to_status) VALUES (%s,%s,'created','open')",(item_id,actor.email))
+            cursor.execute("INSERT INTO fast_datagov.work_item_events (work_item_id,actor_email,event_type,to_status) VALUES (%s,%s,'created','open')",(item_id,actor.email))
             _queue_notifications(cursor,"workflow.created",assignee,"New governance work",titles[kind],{"work_item_id":item_id,"kind":kind,"asset_id":asset_id})
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'workflow.created','asset',%s,jsonb_build_object('kind',%s::text))", (actor.subject, str(asset_id), kind))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'workflow.created','asset',%s,jsonb_build_object('kind',%s::text))", (actor.subject, str(asset_id), kind))
             connection.commit()
         return next(item for item in self.work_items(identity=actor) if item.id == item_id)
 
@@ -692,11 +692,11 @@ class PostgresRepository:
             where = "WHERE to_tsvector('english',coalesce(gt.name,'')||' '||coalesce(gt.definition,''))@@plainto_tsquery('english',%s)"
             query_params.append(query)
         visibility_sql,visibility_params=self._visibility(identity,"linked_asset")
-        rows = fetch_all(f"SELECT gt.id, gt.name, gt.definition, coalesce(d.name, 'Unassigned') domain, coalesce(gt.owner_email, '') owner, gt.status, (SELECT count(*) FROM fastdatagov.asset_terms linked JOIN fastdatagov.assets linked_asset ON linked_asset.id=linked.asset_id WHERE linked.term_id=gt.id AND linked_asset.deleted_at IS NULL{visibility_sql}) linked_assets FROM fastdatagov.glossary_terms gt LEFT JOIN fastdatagov.domains d ON d.id=gt.domain_id {where} ORDER BY gt.name", tuple(visibility_params)+tuple(query_params))
+        rows = fetch_all(f"SELECT gt.id, gt.name, gt.definition, coalesce(d.name, 'Unassigned') domain, coalesce(gt.owner_email, '') owner, gt.status, (SELECT count(*) FROM fast_datagov.asset_terms linked JOIN fast_datagov.assets linked_asset ON linked_asset.id=linked.asset_id WHERE linked.term_id=gt.id AND linked_asset.deleted_at IS NULL{visibility_sql}) linked_assets FROM fast_datagov.glossary_terms gt LEFT JOIN fast_datagov.domains d ON d.id=gt.domain_id {where} ORDER BY gt.name", tuple(visibility_params)+tuple(query_params))
         return [GlossaryTerm(**row) for row in rows]
 
     def adapters(self, identity: UserIdentity | None = None) -> list[AdapterStatus]:
-        rows = fetch_all("SELECT c.key, c.name, c.status, coalesce(c.last_sync_at::text, 'Never') last_sync, count(a.id) assets, CASE WHEN c.last_error IS NULL THEN 'Healthy' ELSE 'Attention' END health, p.adapter_type, coalesce(c.last_error, '') message FROM fastdatagov.connections c JOIN fastdatagov.platforms p ON p.id=c.platform_id LEFT JOIN fastdatagov.assets a ON a.connection_id=c.id AND a.deleted_at IS NULL GROUP BY c.id,p.adapter_type ORDER BY c.name")
+        rows = fetch_all("SELECT c.key, c.name, c.status, coalesce(c.last_sync_at::text, 'Never') last_sync, count(a.id) assets, CASE WHEN c.last_error IS NULL THEN 'Healthy' ELSE 'Attention' END health, p.adapter_type, coalesce(c.last_error, '') message FROM fast_datagov.connections c JOIN fast_datagov.platforms p ON p.id=c.platform_id LEFT JOIN fast_datagov.assets a ON a.connection_id=c.id AND a.deleted_at IS NULL GROUP BY c.id,p.adapter_type ORDER BY c.name")
         result=[]
         for row in rows:
             adapter_type=row.pop("adapter_type"); capabilities=adapter_registry.get(adapter_type)
@@ -706,7 +706,7 @@ class PostgresRepository:
             visibility_sql,visibility_params=self._visibility(identity,"a")
             exact=[]
             for item in result:
-                count=fetch_one("SELECT count(*) count FROM fastdatagov.assets a JOIN fastdatagov.connections c ON c.id=a.connection_id WHERE c.key=%s AND a.deleted_at IS NULL"+visibility_sql,(item.key,*visibility_params))["count"]
+                count=fetch_one("SELECT count(*) count FROM fast_datagov.assets a JOIN fast_datagov.connections c ON c.id=a.connection_id WHERE c.key=%s AND a.deleted_at IS NULL"+visibility_sql,(item.key,*visibility_params))["count"]
                 exact.append(replace(item,assets=count))
             result=exact
         return result
@@ -716,11 +716,11 @@ class PostgresRepository:
         if identity is not None and not identity.is_governance_admin:
             where="WHERE actor_subject IN (%s,%s)"; params.extend((identity.subject,identity.email))
         params.append(limit)
-        rows = fetch_all(f"SELECT id, actor_subject actor, replace(action, '_', ' ') action, entity_key entity, created_at::text occurred_at, coalesce(after_data::text, '') detail FROM fastdatagov.audit_events {where} ORDER BY created_at DESC LIMIT %s", tuple(params))
+        rows = fetch_all(f"SELECT id, actor_subject actor, replace(action, '_', ' ') action, entity_key entity, created_at::text occurred_at, coalesce(after_data::text, '') detail FROM fast_datagov.audit_events {where} ORDER BY created_at DESC LIMIT %s", tuple(params))
         return [AuditEvent(**row) for row in rows]
 
     def domains(self) -> list[Domain]:
-        return [Domain(**row) for row in fetch_all("SELECT id,key,name,description,parent_id FROM fastdatagov.domains ORDER BY name")]
+        return [Domain(**row) for row in fetch_all("SELECT id,key,name,description,parent_id FROM fast_datagov.domains ORDER BY name")]
 
     def save_domain(self, actor, name, description="", parent_id=None, domain_id=None):
         name = name.strip()
@@ -728,18 +728,18 @@ class PostgresRepository:
         if parent_id and domain_id and parent_id == domain_id: raise ValueError("A domain cannot be its own parent")
         if parent_id and not any(d.id==parent_id for d in self.domains()): raise ValueError("Parent domain does not exist")
         if domain_id and parent_id:
-            cycle=fetch_one("WITH RECURSIVE descendants AS (SELECT id FROM fastdatagov.domains WHERE id=%s UNION ALL SELECT d.id FROM fastdatagov.domains d JOIN descendants x ON d.parent_id=x.id) SELECT 1 found FROM descendants WHERE id=%s",(domain_id,parent_id))
+            cycle=fetch_one("WITH RECURSIVE descendants AS (SELECT id FROM fast_datagov.domains WHERE id=%s UNION ALL SELECT d.id FROM fast_datagov.domains d JOIN descendants x ON d.parent_id=x.id) SELECT 1 found FROM descendants WHERE id=%s",(domain_id,parent_id))
             if cycle: raise ValueError("Domain hierarchy cannot contain a cycle")
         key = "-".join(name.lower().split())
         with connect() as connection, connection.cursor() as cursor:
             if domain_id:
-                cursor.execute("UPDATE fastdatagov.domains SET name=%s,description=%s,parent_id=%s WHERE id=%s RETURNING id", (name, description.strip(), parent_id, domain_id))
+                cursor.execute("UPDATE fast_datagov.domains SET name=%s,description=%s,parent_id=%s WHERE id=%s RETURNING id", (name, description.strip(), parent_id, domain_id))
             else:
-                cursor.execute("INSERT INTO fastdatagov.domains (key,name,description,parent_id) VALUES (%s,%s,%s,%s) RETURNING id", (key, name, description.strip(), parent_id))
+                cursor.execute("INSERT INTO fast_datagov.domains (key,name,description,parent_id) VALUES (%s,%s,%s,%s) RETURNING id", (key, name, description.strip(), parent_id))
             row = cursor.fetchone()
             if not row: raise ValueError("Domain does not exist")
             saved_id = row[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'domain.saved','domain',%s,jsonb_build_object('name',%s::text))", (actor.subject, str(saved_id), name))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'domain.saved','domain',%s,jsonb_build_object('name',%s::text))", (actor.subject, str(saved_id), name))
             connection.commit()
         return next(d for d in self.domains() if d.id == saved_id)
 
@@ -749,9 +749,9 @@ class PostgresRepository:
             SELECT p.*, coalesce(d.name,'Unassigned') domain,
                    coalesce(array_agg(pa.asset_id) FILTER (WHERE pa.asset_id IS NOT NULL), '{}') asset_ids,
                    count(pa.asset_id) linked_count
-            FROM fastdatagov.data_products p
-            LEFT JOIN fastdatagov.domains d ON d.id=p.domain_id
-            LEFT JOIN fastdatagov.product_assets pa ON pa.product_id=p.id
+            FROM fast_datagov.data_products p
+            LEFT JOIN fast_datagov.domains d ON d.id=p.domain_id
+            LEFT JOIN fast_datagov.product_assets pa ON pa.product_id=p.id
             GROUP BY p.id,d.name ORDER BY p.name
         """)
         products = [(DataProduct(row["id"], row["key"], row["name"], row["description"], row["domain"], row.get("owner_email") or "", row.get("steward_email") or "", row["status"], row["service_level"], row["access_guidance"], row["certification_status"], [i for i in row["asset_ids"] if i in visible]),row["linked_count"]) for row in rows]
@@ -768,15 +768,15 @@ class PostgresRepository:
         key = "-".join(name.lower().split())
         with connect() as connection, connection.cursor() as cursor:
             if product_id:
-                cursor.execute("UPDATE fastdatagov.data_products SET name=%s,description=%s,domain_id=%s,owner_email=%s,steward_email=%s,status=%s,service_level=%s,access_guidance=%s,updated_at=now() WHERE id=%s RETURNING id", (name.strip(),description.strip(),domain_row.id,owner.strip(),steward.strip(),status,service_level.strip(),access_guidance.strip(),product_id))
+                cursor.execute("UPDATE fast_datagov.data_products SET name=%s,description=%s,domain_id=%s,owner_email=%s,steward_email=%s,status=%s,service_level=%s,access_guidance=%s,updated_at=now() WHERE id=%s RETURNING id", (name.strip(),description.strip(),domain_row.id,owner.strip(),steward.strip(),status,service_level.strip(),access_guidance.strip(),product_id))
             else:
-                cursor.execute("INSERT INTO fastdatagov.data_products (key,name,description,domain_id,owner_email,steward_email,status,service_level,access_guidance) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (key,name.strip(),description.strip(),domain_row.id,owner.strip(),steward.strip(),status,service_level.strip(),access_guidance.strip()))
+                cursor.execute("INSERT INTO fast_datagov.data_products (key,name,description,domain_id,owner_email,steward_email,status,service_level,access_guidance) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (key,name.strip(),description.strip(),domain_row.id,owner.strip(),steward.strip(),status,service_level.strip(),access_guidance.strip()))
             row = cursor.fetchone()
             if not row: raise ValueError("Product does not exist")
             saved_id = row[0]
-            cursor.execute("DELETE FROM fastdatagov.product_assets WHERE product_id=%s", (saved_id,))
-            cursor.executemany("INSERT INTO fastdatagov.product_assets (product_id,asset_id) VALUES (%s,%s)", [(saved_id, aid) for aid in sorted(set(asset_ids))])
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'product.saved','data_product',%s,jsonb_build_object('name',%s::text))", (actor.subject,str(saved_id),name.strip()))
+            cursor.execute("DELETE FROM fast_datagov.product_assets WHERE product_id=%s", (saved_id,))
+            cursor.executemany("INSERT INTO fast_datagov.product_assets (product_id,asset_id) VALUES (%s,%s)", [(saved_id, aid) for aid in sorted(set(asset_ids))])
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'product.saved','data_product',%s,jsonb_build_object('name',%s::text))", (actor.subject,str(saved_id),name.strip()))
             connection.commit()
         return next(p for p in self.products(actor) if p.id == saved_id)
 
@@ -786,27 +786,27 @@ class PostgresRepository:
         if sensitivity not in {"public", "internal", "confidential", "restricted"}: raise ValueError("Unsupported sensitivity")
         if "@" not in owner or "@" not in steward: raise ValueError("Owner and steward emails are required")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT coalesce(max(version),0)+1 FROM fastdatagov.asset_revisions WHERE asset_id=%s", (asset_id,)); version=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.asset_revisions (asset_id,version,snapshot,change_note,changed_by) VALUES (%s,%s,%s,'Business metadata update',%s)", (asset_id,version,Jsonb(asdict(asset)),actor.email))
-            cursor.execute("UPDATE fastdatagov.assets SET business_description=%s,owner_email=%s,steward_email=%s,sensitivity=%s,access_guidance=%s,updated_at=now() WHERE id=%s", (business_description.strip(),owner.strip(),steward.strip(),sensitivity,access_guidance.strip(),asset_id))
+            cursor.execute("SELECT coalesce(max(version),0)+1 FROM fast_datagov.asset_revisions WHERE asset_id=%s", (asset_id,)); version=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.asset_revisions (asset_id,version,snapshot,change_note,changed_by) VALUES (%s,%s,%s,'Business metadata update',%s)", (asset_id,version,Jsonb(asdict(asset)),actor.email))
+            cursor.execute("UPDATE fast_datagov.assets SET business_description=%s,owner_email=%s,steward_email=%s,sensitivity=%s,access_guidance=%s,updated_at=now() WHERE id=%s", (business_description.strip(),owner.strip(),steward.strip(),sensitivity,access_guidance.strip(),asset_id))
             _recompute_trust(cursor,asset_id)
-            cursor.execute("DELETE FROM fastdatagov.asset_tags WHERE asset_id=%s AND source='fastdatagov'", (asset_id,))
+            cursor.execute("DELETE FROM fast_datagov.asset_tags WHERE asset_id=%s AND source='fastdatagov'", (asset_id,))
             for label in sorted({t.strip() for t in tags if t.strip()}):
                 key = "-".join(label.lower().split())
-                cursor.execute("INSERT INTO fastdatagov.tags (key,label) VALUES (%s,%s) ON CONFLICT (key) DO UPDATE SET label=excluded.label RETURNING id", (key,label)); tag_id=cursor.fetchone()[0]
-                cursor.execute("INSERT INTO fastdatagov.asset_tags (asset_id,tag_id,source) VALUES (%s,%s,'fastdatagov') ON CONFLICT (asset_id,tag_id) DO UPDATE SET source='fastdatagov'", (asset_id,tag_id))
-            cursor.execute("DELETE FROM fastdatagov.asset_terms WHERE asset_id=%s", (asset_id,))
-            cursor.executemany("INSERT INTO fastdatagov.asset_terms (asset_id,term_id) VALUES (%s,%s)", [(asset_id, tid) for tid in sorted(set(term_ids))])
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,before_data,after_data) VALUES (%s,'asset.metadata_updated','asset',%s,%s,jsonb_build_object('version',%s::integer))", (actor.subject,str(asset_id),Jsonb(asdict(asset)),version))
+                cursor.execute("INSERT INTO fast_datagov.tags (key,label) VALUES (%s,%s) ON CONFLICT (key) DO UPDATE SET label=excluded.label RETURNING id", (key,label)); tag_id=cursor.fetchone()[0]
+                cursor.execute("INSERT INTO fast_datagov.asset_tags (asset_id,tag_id,source) VALUES (%s,%s,'fastdatagov') ON CONFLICT (asset_id,tag_id) DO UPDATE SET source='fastdatagov'", (asset_id,tag_id))
+            cursor.execute("DELETE FROM fast_datagov.asset_terms WHERE asset_id=%s", (asset_id,))
+            cursor.executemany("INSERT INTO fast_datagov.asset_terms (asset_id,term_id) VALUES (%s,%s)", [(asset_id, tid) for tid in sorted(set(term_ids))])
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,before_data,after_data) VALUES (%s,'asset.metadata_updated','asset',%s,%s,jsonb_build_object('version',%s::integer))", (actor.subject,str(asset_id),Jsonb(asdict(asset)),version))
             connection.commit()
         return self.get_asset(asset_id, actor)
 
     def update_field_metadata(self, asset_id, field_name, actor, business_description, classification):
         if not self.get_asset(asset_id,actor): raise ValueError("Asset does not exist or is not visible")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("UPDATE fastdatagov.asset_fields SET business_description=%s,classification=%s,business_updated_by=%s,business_updated_at=now() WHERE asset_id=%s AND name=%s RETURNING id",(business_description.strip(),classification.strip(),actor.email,asset_id,field_name)); row=cursor.fetchone()
+            cursor.execute("UPDATE fast_datagov.asset_fields SET business_description=%s,classification=%s,business_updated_by=%s,business_updated_at=now() WHERE asset_id=%s AND name=%s RETURNING id",(business_description.strip(),classification.strip(),actor.email,asset_id,field_name)); row=cursor.fetchone()
             if not row: raise ValueError("Field does not exist")
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'field.metadata_updated','asset_field',%s,jsonb_build_object('classification',%s::text))",(actor.subject,str(row[0]),classification.strip())); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'field.metadata_updated','asset_field',%s,jsonb_build_object('classification',%s::text))",(actor.subject,str(row[0]),classification.strip())); connection.commit()
         return next(field for field in self.get_asset(asset_id,actor).fields if field.name==field_name)
 
     def save_term(self, actor, name, definition, domain, owner, status, term_id=None):
@@ -818,14 +818,14 @@ class PostgresRepository:
         key = "-".join(name.lower().split())
         with connect() as connection, connection.cursor() as cursor:
             if term_id:
-                cursor.execute("INSERT INTO fastdatagov.glossary_term_revisions (term_id,version,snapshot,change_note,changed_by) SELECT id,version,to_jsonb(gt),'Term update',%s FROM fastdatagov.glossary_terms gt WHERE id=%s", (actor.email,term_id))
-                cursor.execute("UPDATE fastdatagov.glossary_terms SET name=%s,definition=%s,domain_id=%s,owner_email=%s,status=%s,version=version+1,updated_at=now() WHERE id=%s RETURNING id", (name.strip(),definition.strip(),domain_row.id,owner.strip(),status,term_id))
+                cursor.execute("INSERT INTO fast_datagov.glossary_term_revisions (term_id,version,snapshot,change_note,changed_by) SELECT id,version,to_jsonb(gt),'Term update',%s FROM fast_datagov.glossary_terms gt WHERE id=%s", (actor.email,term_id))
+                cursor.execute("UPDATE fast_datagov.glossary_terms SET name=%s,definition=%s,domain_id=%s,owner_email=%s,status=%s,version=version+1,updated_at=now() WHERE id=%s RETURNING id", (name.strip(),definition.strip(),domain_row.id,owner.strip(),status,term_id))
             else:
-                cursor.execute("INSERT INTO fastdatagov.glossary_terms (key,name,definition,domain_id,owner_email,status) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id", (key,name.strip(),definition.strip(),domain_row.id,owner.strip(),status))
+                cursor.execute("INSERT INTO fast_datagov.glossary_terms (key,name,definition,domain_id,owner_email,status) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id", (key,name.strip(),definition.strip(),domain_row.id,owner.strip(),status))
             row=cursor.fetchone()
             if not row: raise ValueError("Term does not exist")
             saved_id=row[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'glossary.saved','glossary_term',%s,jsonb_build_object('name',%s::text))", (actor.subject,str(saved_id),name.strip()))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'glossary.saved','glossary_term',%s,jsonb_build_object('name',%s::text))", (actor.subject,str(saved_id),name.strip()))
             connection.commit()
         return next(t for t in self.glossary() if t.id == saved_id)
 
@@ -834,15 +834,15 @@ class PostgresRepository:
         if not self.get_asset(source_id, actor) or not self.get_asset(target_id, actor): raise ValueError("Lineage endpoint is not visible")
         if evidence_type not in {"manual","inferred","native","query_history"}: raise ValueError("Unsupported lineage evidence")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.lineage_edges (source_asset_id,target_asset_id,operation,evidence_type,confidence,created_by) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (source_asset_id,target_asset_id,source_field_id,target_field_id,operation) DO UPDATE SET evidence_type=excluded.evidence_type,confidence=excluded.confidence,observed_at=now() RETURNING id", (source_id,target_id,operation.strip() or "transforms",evidence_type,max(0,min(1,confidence)),actor.email)); edge_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'lineage.created','lineage_edge',%s,jsonb_build_object('source',%s::bigint,'target',%s::bigint))", (actor.subject,str(edge_id),source_id,target_id)); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.lineage_edges (source_asset_id,target_asset_id,operation,evidence_type,confidence,created_by) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (source_asset_id,target_asset_id,source_field_id,target_field_id,operation) DO UPDATE SET evidence_type=excluded.evidence_type,confidence=excluded.confidence,observed_at=now() RETURNING id", (source_id,target_id,operation.strip() or "transforms",evidence_type,max(0,min(1,confidence)),actor.email)); edge_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'lineage.created','lineage_edge',%s,jsonb_build_object('source',%s::bigint,'target',%s::bigint))", (actor.subject,str(edge_id),source_id,target_id)); connection.commit()
         return next(e for e in self.lineage(identity=actor) if e.id == edge_id)
 
     def delete_lineage(self, edge_id, actor):
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("DELETE FROM fastdatagov.lineage_edges WHERE id=%s AND evidence_type='manual' RETURNING id", (edge_id,))
+            cursor.execute("DELETE FROM fast_datagov.lineage_edges WHERE id=%s AND evidence_type='manual' RETURNING id", (edge_id,))
             if not cursor.fetchone(): raise ValueError("Only manual lineage can be removed")
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'lineage.removed','lineage_edge',%s)", (actor.subject,str(edge_id))); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'lineage.removed','lineage_edge',%s)", (actor.subject,str(edge_id))); connection.commit()
 
     def save_quality_rule(self, actor, asset_id, name, rule_type, expression, threshold, severity, schedule, rule_id=None):
         if rule_type not in {"completeness", "uniqueness", "validity", "consistency", "freshness", "custom_sql", "custom_python"}: raise ValueError("Unsupported rule type")
@@ -852,52 +852,52 @@ class PostgresRepository:
         engine = "python_worker" if rule_type == "custom_python" else "platform_sql"
         with connect() as connection, connection.cursor() as cursor:
             if rule_id:
-                cursor.execute("INSERT INTO fastdatagov.quality_rule_revisions (rule_id,version,snapshot,change_note,changed_by) SELECT id,version,to_jsonb(qr),'Rule update',%s FROM fastdatagov.quality_rules qr WHERE id=%s", (actor.email,rule_id))
-                cursor.execute("UPDATE fastdatagov.quality_rules SET asset_id=%s,name=%s,rule_type=%s,expression=%s,threshold=%s,severity=%s,schedule=%s,execution_engine=%s,owner_email=coalesce(owner_email,%s),next_run_at=CASE %s WHEN 'hourly' THEN now()+interval '1 hour' WHEN 'daily' THEN now()+interval '1 day' WHEN 'weekly' THEN now()+interval '7 days' ELSE NULL END,version=version+1,updated_at=now() WHERE id=%s RETURNING id", (asset_id,name.strip(),rule_type,expression.strip(),threshold,severity,schedule,engine,actor.email,schedule,rule_id))
+                cursor.execute("INSERT INTO fast_datagov.quality_rule_revisions (rule_id,version,snapshot,change_note,changed_by) SELECT id,version,to_jsonb(qr),'Rule update',%s FROM fast_datagov.quality_rules qr WHERE id=%s", (actor.email,rule_id))
+                cursor.execute("UPDATE fast_datagov.quality_rules SET asset_id=%s,name=%s,rule_type=%s,expression=%s,threshold=%s,severity=%s,schedule=%s,execution_engine=%s,owner_email=coalesce(owner_email,%s),next_run_at=CASE %s WHEN 'hourly' THEN now()+interval '1 hour' WHEN 'daily' THEN now()+interval '1 day' WHEN 'weekly' THEN now()+interval '7 days' ELSE NULL END,version=version+1,updated_at=now() WHERE id=%s RETURNING id", (asset_id,name.strip(),rule_type,expression.strip(),threshold,severity,schedule,engine,actor.email,schedule,rule_id))
             else:
-                cursor.execute("INSERT INTO fastdatagov.quality_rules (asset_id,name,rule_type,expression,threshold,severity,schedule,execution_engine,owner_email,next_run_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,CASE %s WHEN 'hourly' THEN now()+interval '1 hour' WHEN 'daily' THEN now()+interval '1 day' WHEN 'weekly' THEN now()+interval '7 days' ELSE NULL END) RETURNING id", (asset_id,name.strip(),rule_type,expression.strip(),threshold,severity,schedule,engine,actor.email,schedule))
+                cursor.execute("INSERT INTO fast_datagov.quality_rules (asset_id,name,rule_type,expression,threshold,severity,schedule,execution_engine,owner_email,next_run_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,CASE %s WHEN 'hourly' THEN now()+interval '1 hour' WHEN 'daily' THEN now()+interval '1 day' WHEN 'weekly' THEN now()+interval '7 days' ELSE NULL END) RETURNING id", (asset_id,name.strip(),rule_type,expression.strip(),threshold,severity,schedule,engine,actor.email,schedule))
             row=cursor.fetchone()
             if not row: raise ValueError("Rule does not exist")
             saved_id=row[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'quality.rule_saved','quality_rule',%s,jsonb_build_object('versioned',true))", (actor.subject,str(saved_id))); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'quality.rule_saved','quality_rule',%s,jsonb_build_object('versioned',true))", (actor.subject,str(saved_id))); connection.commit()
         return next(r for r in self.quality_rules(actor) if r.id == saved_id)
 
     def queue_quality_run(self, rule_id, actor):
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM fastdatagov.quality_rules WHERE id=%s AND enabled", (rule_id,))
+            cursor.execute("SELECT id FROM fast_datagov.quality_rules WHERE id=%s AND enabled", (rule_id,))
             if not cursor.fetchone(): raise ValueError("Enabled rule does not exist")
-            cursor.execute("SELECT id FROM fastdatagov.jobs WHERE kind='quality.run' AND status IN ('queued','running') AND (payload->>'rule_id')::bigint=%s ORDER BY id LIMIT 1",(rule_id,)); existing=cursor.fetchone()
+            cursor.execute("SELECT id FROM fast_datagov.jobs WHERE kind='quality.run' AND status IN ('queued','running') AND (payload->>'rule_id')::bigint=%s ORDER BY id LIMIT 1",(rule_id,)); existing=cursor.fetchone()
             if existing: return existing[0]
-            cursor.execute("INSERT INTO fastdatagov.jobs (kind,payload) VALUES ('quality.run',jsonb_build_object('rule_id',%s::bigint)) RETURNING id", (rule_id,)); job_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'quality.run_queued','quality_rule',%s)", (actor.subject,str(rule_id))); connection.commit(); return job_id
+            cursor.execute("INSERT INTO fast_datagov.jobs (kind,payload) VALUES ('quality.run',jsonb_build_object('rule_id',%s::bigint)) RETURNING id", (rule_id,)); job_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'quality.run_queued','quality_rule',%s)", (actor.subject,str(rule_id))); connection.commit(); return job_id
 
     def set_quality_enabled(self,rule_id,actor,enabled):
         visible={r.id for r in self.quality_rules(actor)}
         if rule_id not in visible: raise ValueError("Rule does not exist or is not visible")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("UPDATE fastdatagov.quality_rules SET enabled=%s,next_run_at=CASE WHEN %s THEN now() ELSE NULL END,updated_at=now() WHERE id=%s",(enabled,enabled,rule_id))
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'quality.rule_toggled','quality_rule',%s,jsonb_build_object('enabled',%s::boolean))",(actor.subject,str(rule_id),enabled)); connection.commit()
+            cursor.execute("UPDATE fast_datagov.quality_rules SET enabled=%s,next_run_at=CASE WHEN %s THEN now() ELSE NULL END,updated_at=now() WHERE id=%s",(enabled,enabled,rule_id))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'quality.rule_toggled','quality_rule',%s,jsonb_build_object('enabled',%s::boolean))",(actor.subject,str(rule_id),enabled)); connection.commit()
 
     def work_comments(self, item_id):
-        return [WorkComment(row["id"],row["work_item_id"],row["author_email"],row["body"],str(row["created_at"])) for row in fetch_all("SELECT * FROM fastdatagov.work_item_comments WHERE work_item_id=%s ORDER BY created_at", (item_id,))]
+        return [WorkComment(row["id"],row["work_item_id"],row["author_email"],row["body"],str(row["created_at"])) for row in fetch_all("SELECT * FROM fast_datagov.work_item_comments WHERE work_item_id=%s ORDER BY created_at", (item_id,))]
 
     def add_work_comment(self, item_id, actor, body):
         if not body.strip(): raise ValueError("Comment is required")
         if not any(item.id==item_id for item in self.work_items(identity=actor)): raise ValueError("Work item does not exist or is not visible")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.work_item_comments (work_item_id,author_email,body) VALUES (%s,%s,%s) RETURNING id", (item_id,actor.email,body.strip())); comment_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.work_item_events (work_item_id,actor_email,event_type,detail) VALUES (%s,%s,'commented',jsonb_build_object('comment_id',%s::bigint))", (item_id,actor.email,comment_id)); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.work_item_comments (work_item_id,author_email,body) VALUES (%s,%s,%s) RETURNING id", (item_id,actor.email,body.strip())); comment_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.work_item_events (work_item_id,actor_email,event_type,detail) VALUES (%s,%s,'commented',jsonb_build_object('comment_id',%s::bigint))", (item_id,actor.email,comment_id)); connection.commit()
         return next(c for c in self.work_comments(item_id) if c.id == comment_id)
 
     def certify_asset(self, asset_id, actor, status, expires_days, notes=""):
         if status not in {"certified", "verified", "rejected", "expired"}: raise ValueError("Unsupported certification status")
         if not self.get_asset(asset_id, actor): raise ValueError("Asset does not exist or is not visible")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM fastdatagov.certifications WHERE asset_id=%s ORDER BY certified_at DESC LIMIT 1", (asset_id,)); prior=cursor.fetchone()
-            cursor.execute("INSERT INTO fastdatagov.certifications (asset_id,status,certified_by,expires_at,notes,renewal_of_id) VALUES (%s,%s,%s,now()+(%s||' days')::interval,%s,%s)", (asset_id,status,actor.email,expires_days,notes,prior[0] if prior else None))
-            cursor.execute("UPDATE fastdatagov.assets SET certification_status=%s,updated_at=now() WHERE id=%s", (status,asset_id))
+            cursor.execute("SELECT id FROM fast_datagov.certifications WHERE asset_id=%s ORDER BY certified_at DESC LIMIT 1", (asset_id,)); prior=cursor.fetchone()
+            cursor.execute("INSERT INTO fast_datagov.certifications (asset_id,status,certified_by,expires_at,notes,renewal_of_id) VALUES (%s,%s,%s,now()+(%s||' days')::interval,%s,%s)", (asset_id,status,actor.email,expires_days,notes,prior[0] if prior else None))
+            cursor.execute("UPDATE fast_datagov.assets SET certification_status=%s,updated_at=now() WHERE id=%s", (status,asset_id))
             _recompute_trust(cursor,asset_id)
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'certification.decided','asset',%s,jsonb_build_object('status',%s::text,'expires_days',%s::integer))", (actor.subject,str(asset_id),status,expires_days))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'certification.decided','asset',%s,jsonb_build_object('status',%s::text,'expires_days',%s::integer))", (actor.subject,str(asset_id),status,expires_days))
             _queue_notifications(cursor,"certification.decided",actor.email,f"Certification {status}",f"Asset {asset_id} certification was recorded as {status}.",{"asset_id":asset_id,"status":status})
             connection.commit()
 
@@ -906,17 +906,17 @@ class PostgresRepository:
         product=next((p for p in self.products(actor) if p.id==product_id),None)
         if not product: raise ValueError("Product does not exist or is not visible")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM fastdatagov.product_certifications WHERE product_id=%s ORDER BY certified_at DESC LIMIT 1",(product_id,)); prior=cursor.fetchone()
-            cursor.execute("INSERT INTO fastdatagov.product_certifications (product_id,status,certified_by,expires_at,notes,renewal_of_id) VALUES (%s,%s,%s,now()+(%s||' days')::interval,%s,%s)",(product_id,status,actor.email,expires_days,notes,prior[0] if prior else None))
-            cursor.execute("UPDATE fastdatagov.data_products SET certification_status=%s,updated_at=now() WHERE id=%s",(status,product_id))
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'certification.decided','data_product',%s,jsonb_build_object('status',%s::text))",(actor.subject,str(product_id),status))
+            cursor.execute("SELECT id FROM fast_datagov.product_certifications WHERE product_id=%s ORDER BY certified_at DESC LIMIT 1",(product_id,)); prior=cursor.fetchone()
+            cursor.execute("INSERT INTO fast_datagov.product_certifications (product_id,status,certified_by,expires_at,notes,renewal_of_id) VALUES (%s,%s,%s,now()+(%s||' days')::interval,%s,%s)",(product_id,status,actor.email,expires_days,notes,prior[0] if prior else None))
+            cursor.execute("UPDATE fast_datagov.data_products SET certification_status=%s,updated_at=now() WHERE id=%s",(status,product_id))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'certification.decided','data_product',%s,jsonb_build_object('status',%s::text))",(actor.subject,str(product_id),status))
             _queue_notifications(cursor,"certification.decided",product.owner,f"Product certification {status}",f"Data product {product.name} certification was recorded as {status}.",{"product_id":product_id,"status":status}); connection.commit()
 
     def assignments(self, scope_type="", scope_id=0):
         conditions=["true"]; params=[]
         if scope_type: conditions.append("scope_type=%s"); params.append(scope_type)
         if scope_id: conditions.append("scope_id=%s"); params.append(scope_id)
-        rows=fetch_all("SELECT id,scope_type,scope_id,responsibility,assignee_email,coalesce(attested_at::text,'') attested_at,coalesce(attestation_expires_at::text,'') expires_at FROM fastdatagov.accountability_assignments WHERE "+" AND ".join(conditions)+" ORDER BY scope_type,scope_id,responsibility",tuple(params))
+        rows=fetch_all("SELECT id,scope_type,scope_id,responsibility,assignee_email,coalesce(attested_at::text,'') attested_at,coalesce(attestation_expires_at::text,'') expires_at FROM fast_datagov.accountability_assignments WHERE "+" AND ".join(conditions)+" ORDER BY scope_type,scope_id,responsibility",tuple(params))
         return [AccountabilityAssignment(**row) for row in rows]
 
     def assign_accountability(self, actor, scope_type, scope_id, responsibility, email, expires_days=365):
@@ -924,109 +924,109 @@ class PostgresRepository:
         exists=(scope_type=="asset" and self.get_asset(scope_id,actor)) or (scope_type=="product" and any(p.id==scope_id for p in self.products(actor))) or (scope_type=="domain" and any(d.id==scope_id for d in self.domains()))
         if not exists or "@" not in email: raise ValueError("Accountability scope does not exist or email is invalid")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.accountability_assignments (scope_type,scope_id,responsibility,assignee_email,assigned_by,attested_at,attestation_expires_at) VALUES (%s,%s,%s,%s,%s,now(),now()+(%s||' days')::interval) ON CONFLICT (scope_type,scope_id,responsibility,assignee_email) DO UPDATE SET attested_at=now(),attestation_expires_at=excluded.attestation_expires_at,assigned_by=excluded.assigned_by RETURNING id", (scope_type,scope_id,responsibility,email.strip(),actor.email,expires_days)); assignment_id=cursor.fetchone()[0]
-            if scope_type == "asset": cursor.execute(f"UPDATE fastdatagov.assets SET {responsibility}_email=%s,updated_at=now() WHERE id=%s", (email.strip(),scope_id))
-            elif scope_type == "product": cursor.execute(f"UPDATE fastdatagov.data_products SET {responsibility}_email=%s,updated_at=now() WHERE id=%s", (email.strip(),scope_id))
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'accountability.assigned',%s,%s,jsonb_build_object('responsibility',%s::text,'email',%s::text))", (actor.subject,scope_type,str(scope_id),responsibility,email.strip())); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.accountability_assignments (scope_type,scope_id,responsibility,assignee_email,assigned_by,attested_at,attestation_expires_at) VALUES (%s,%s,%s,%s,%s,now(),now()+(%s||' days')::interval) ON CONFLICT (scope_type,scope_id,responsibility,assignee_email) DO UPDATE SET attested_at=now(),attestation_expires_at=excluded.attestation_expires_at,assigned_by=excluded.assigned_by RETURNING id", (scope_type,scope_id,responsibility,email.strip(),actor.email,expires_days)); assignment_id=cursor.fetchone()[0]
+            if scope_type == "asset": cursor.execute(f"UPDATE fast_datagov.assets SET {responsibility}_email=%s,updated_at=now() WHERE id=%s", (email.strip(),scope_id))
+            elif scope_type == "product": cursor.execute(f"UPDATE fast_datagov.data_products SET {responsibility}_email=%s,updated_at=now() WHERE id=%s", (email.strip(),scope_id))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key,after_data) VALUES (%s,'accountability.assigned',%s,%s,jsonb_build_object('responsibility',%s::text,'email',%s::text))", (actor.subject,scope_type,str(scope_id),responsibility,email.strip())); connection.commit()
         return next(a for a in self.assignments(scope_type,scope_id) if a.id == assignment_id)
 
     def roles(self):
-        return fetch_all("SELECT id,principal_type,principal_key,role,scope_type,coalesce(scope_key,'') scope_key FROM fastdatagov.role_bindings ORDER BY principal_type,principal_key,role")
+        return fetch_all("SELECT id,principal_type,principal_key,role,scope_type,coalesce(scope_key,'') scope_key FROM fast_datagov.role_bindings ORDER BY principal_type,principal_key,role")
 
     def save_role(self, actor, principal_type, principal_key, role, scope_type="global", scope_key=""):
         allowed={"consumer","steward","owner","engineer","governance_lead","admin"}
         if principal_type not in {"user","group"} or role not in allowed or scope_type!="global": raise ValueError("Only global application role bindings are supported; use accountability assignments for domain/asset responsibility")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.role_bindings (principal_type,principal_key,role,scope_type,scope_key) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (principal_type,principal_key,role,scope_type,scope_key) DO UPDATE SET principal_key=excluded.principal_key RETURNING id", (principal_type,principal_key.strip(),role,scope_type,scope_key.strip())); role_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'role.created','role_binding',%s)", (actor.subject,str(role_id))); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.role_bindings (principal_type,principal_key,role,scope_type,scope_key) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (principal_type,principal_key,role,scope_type,scope_key) DO UPDATE SET principal_key=excluded.principal_key RETURNING id", (principal_type,principal_key.strip(),role,scope_type,scope_key.strip())); role_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'role.created','role_binding',%s)", (actor.subject,str(role_id))); connection.commit()
         return next(r for r in self.roles() if r["id"] == role_id)
 
     def delete_role(self,actor,role_id):
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("DELETE FROM fastdatagov.role_bindings WHERE id=%s RETURNING id",(role_id,))
+            cursor.execute("DELETE FROM fast_datagov.role_bindings WHERE id=%s RETURNING id",(role_id,))
             if not cursor.fetchone(): raise ValueError("Role binding does not exist")
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'role.removed','role_binding',%s)",(actor.subject,str(role_id))); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'role.removed','role_binding',%s)",(actor.subject,str(role_id))); connection.commit()
 
     def jobs(self, limit=50):
-        return [JobStatus(row["id"],row["kind"],row["status"],row["attempts"],str(row["run_after"]),row.get("last_error") or "") for row in fetch_all("SELECT id,kind,status,attempts,run_after,last_error FROM fastdatagov.jobs ORDER BY created_at DESC LIMIT %s", (limit,))]
+        return [JobStatus(row["id"],row["kind"],row["status"],row["attempts"],str(row["run_after"]),row.get("last_error") or "") for row in fetch_all("SELECT id,kind,status,attempts,run_after,last_error FROM fast_datagov.jobs ORDER BY created_at DESC LIMIT %s", (limit,))]
 
     def pilot_metrics(self):
         current=self.metrics()
-        execute("UPDATE fastdatagov.pilot_metrics SET current_value=%s,measured_at=now() WHERE key='catalog_coverage'", (current["catalog_coverage"],))
-        execute("UPDATE fastdatagov.pilot_metrics SET current_value=%s,measured_at=now() WHERE key='accountability_coverage'", (current["accountability_pct"],))
-        execute("UPDATE fastdatagov.pilot_metrics SET current_value=(SELECT CASE WHEN count(*)=0 THEN 0 ELSE 100.0*count(DISTINCT qr.asset_id)/count(DISTINCT a.id) END FROM fastdatagov.assets a LEFT JOIN fastdatagov.quality_rules qr ON qr.asset_id=a.id AND qr.enabled WHERE a.deleted_at IS NULL),measured_at=now() WHERE key='quality_rule_coverage'")
-        execute("UPDATE fastdatagov.pilot_metrics SET current_value=(SELECT percentile_disc(.5) WITHIN GROUP (ORDER BY extract(epoch FROM (updated_at-created_at))/3600) FROM fastdatagov.work_items WHERE kind IN ('access','certification') AND status IN ('approved','resolved')),measured_at=now() WHERE key='time_to_trusted_data'")
-        execute("UPDATE fastdatagov.pilot_metrics SET current_value=(SELECT count(*) FROM fastdatagov.users WHERE last_seen_at>=now()-interval '7 days'),measured_at=now() WHERE key='weekly_active_users'")
-        rows=fetch_all("SELECT key,label,unit,baseline::float,target::float,current_value::float,coalesce(measured_at::text,'') measured_at,notes FROM fastdatagov.pilot_metrics ORDER BY id")
+        execute("UPDATE fast_datagov.pilot_metrics SET current_value=%s,measured_at=now() WHERE key='catalog_coverage'", (current["catalog_coverage"],))
+        execute("UPDATE fast_datagov.pilot_metrics SET current_value=%s,measured_at=now() WHERE key='accountability_coverage'", (current["accountability_pct"],))
+        execute("UPDATE fast_datagov.pilot_metrics SET current_value=(SELECT CASE WHEN count(*)=0 THEN 0 ELSE 100.0*count(DISTINCT qr.asset_id)/count(DISTINCT a.id) END FROM fast_datagov.assets a LEFT JOIN fast_datagov.quality_rules qr ON qr.asset_id=a.id AND qr.enabled WHERE a.deleted_at IS NULL),measured_at=now() WHERE key='quality_rule_coverage'")
+        execute("UPDATE fast_datagov.pilot_metrics SET current_value=(SELECT percentile_disc(.5) WITHIN GROUP (ORDER BY extract(epoch FROM (updated_at-created_at))/3600) FROM fast_datagov.work_items WHERE kind IN ('access','certification') AND status IN ('approved','resolved')),measured_at=now() WHERE key='time_to_trusted_data'")
+        execute("UPDATE fast_datagov.pilot_metrics SET current_value=(SELECT count(*) FROM fast_datagov.users WHERE last_seen_at>=now()-interval '7 days'),measured_at=now() WHERE key='weekly_active_users'")
+        rows=fetch_all("SELECT key,label,unit,baseline::float,target::float,current_value::float,coalesce(measured_at::text,'') measured_at,notes FROM fast_datagov.pilot_metrics ORDER BY id")
         return [PilotMetric(**row) for row in rows]
 
     def workflow_definitions(self):
-        return fetch_all("SELECT kind,display_name,due_days,coalesce(approval_role,'') approval_role,enabled,configuration FROM fastdatagov.workflow_definitions ORDER BY id")
+        return fetch_all("SELECT kind,display_name,due_days,coalesce(approval_role,'') approval_role,enabled,configuration FROM fast_datagov.workflow_definitions ORDER BY id")
 
     def save_workflow_definition(self, actor, kind, due_days, approval_role, enabled):
         if kind not in {"quality","certification","metadata","access","attestation"} or due_days < 1: raise ValueError("Invalid workflow definition")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("UPDATE fastdatagov.workflow_definitions SET due_days=%s,approval_role=%s,enabled=%s,updated_by=%s,updated_at=now() WHERE kind=%s RETURNING kind",(due_days,approval_role or None,enabled,actor.email,kind)); row=cursor.fetchone()
+            cursor.execute("UPDATE fast_datagov.workflow_definitions SET due_days=%s,approval_role=%s,enabled=%s,updated_by=%s,updated_at=now() WHERE kind=%s RETURNING kind",(due_days,approval_role or None,enabled,actor.email,kind)); row=cursor.fetchone()
             if not row: raise ValueError("Workflow definition does not exist")
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'workflow.definition_updated','workflow_definition',%s)",(actor.subject,kind)); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'workflow.definition_updated','workflow_definition',%s)",(actor.subject,kind)); connection.commit()
         return next(row for row in self.workflow_definitions() if row["kind"]==kind)
 
     def notification_channels(self):
-        return fetch_all("SELECT id,key,channel_type,endpoint_ref,events,enabled,updated_at::text updated_at FROM fastdatagov.notification_channels ORDER BY key")
+        return fetch_all("SELECT id,key,channel_type,endpoint_ref,events,enabled,updated_at::text updated_at FROM fast_datagov.notification_channels ORDER BY key")
 
     def save_notification_channel(self, actor, key, channel_type, endpoint_ref, events, enabled=True):
         if channel_type not in {"email","teams","slack","webhook"} or not key.strip() or not endpoint_ref.startswith("env:"): raise ValueError("Notification channels require a key, supported type and env: secret reference")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.notification_channels (key,channel_type,endpoint_ref,events,enabled,created_by) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (key) DO UPDATE SET channel_type=excluded.channel_type,endpoint_ref=excluded.endpoint_ref,events=excluded.events,enabled=excluded.enabled,updated_at=now() RETURNING id",(key.strip(),channel_type,endpoint_ref,events,enabled,actor.email)); channel_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'notification.channel_saved','notification_channel',%s)",(actor.subject,key.strip())); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.notification_channels (key,channel_type,endpoint_ref,events,enabled,created_by) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (key) DO UPDATE SET channel_type=excluded.channel_type,endpoint_ref=excluded.endpoint_ref,events=excluded.events,enabled=excluded.enabled,updated_at=now() RETURNING id",(key.strip(),channel_type,endpoint_ref,events,enabled,actor.email)); channel_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'notification.channel_saved','notification_channel',%s)",(actor.subject,key.strip())); connection.commit()
         return next(row for row in self.notification_channels() if row["id"]==channel_id)
 
     def connection_details(self):
-        return fetch_all("SELECT c.key,c.name,p.adapter_type,coalesce(c.credential_ref,'') credential_ref,c.config,c.status,coalesce(c.last_sync_at::text,'Never') last_sync,coalesce(c.last_error,'') last_error FROM fastdatagov.connections c JOIN fastdatagov.platforms p ON p.id=c.platform_id ORDER BY c.name")
+        return fetch_all("SELECT c.key,c.name,p.adapter_type,coalesce(c.credential_ref,'') credential_ref,c.config,c.status,coalesce(c.last_sync_at::text,'Never') last_sync,coalesce(c.last_error,'') last_error FROM fast_datagov.connections c JOIN fast_datagov.platforms p ON p.id=c.platform_id ORDER BY c.name")
 
     def save_connection(self, actor, key, name, adapter_type, credential_ref, config):
         if adapter_type not in {"snowflake","fabric","databricks","demo"} or (credential_ref and not credential_ref.startswith("env:")): raise ValueError("Invalid adapter or credential reference")
         if _contains_secret(config): raise ValueError("Connection configuration cannot contain secret values")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.platforms (key,name,adapter_type) VALUES (%s,%s,%s) ON CONFLICT (key) DO UPDATE SET name=excluded.name,adapter_type=excluded.adapter_type RETURNING id",(adapter_type,adapter_type.title(),adapter_type)); platform_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.connections (platform_id,key,name,credential_ref,config) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (key) DO UPDATE SET platform_id=excluded.platform_id,name=excluded.name,credential_ref=excluded.credential_ref,config=excluded.config,updated_at=now()",(platform_id,key.strip(),name.strip(),credential_ref or None,Jsonb(config)))
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'connection.saved','connection',%s)",(actor.subject,key.strip())); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.platforms (key,name,adapter_type) VALUES (%s,%s,%s) ON CONFLICT (key) DO UPDATE SET name=excluded.name,adapter_type=excluded.adapter_type RETURNING id",(adapter_type,adapter_type.title(),adapter_type)); platform_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.connections (platform_id,key,name,credential_ref,config) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (key) DO UPDATE SET platform_id=excluded.platform_id,name=excluded.name,credential_ref=excluded.credential_ref,config=excluded.config,updated_at=now()",(platform_id,key.strip(),name.strip(),credential_ref or None,Jsonb(config)))
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'connection.saved','connection',%s)",(actor.subject,key.strip())); connection.commit()
         return next(c for c in self.connection_details() if c["key"]==key.strip())
 
     def queue_adapter_job(self, actor, key, kind):
         if kind not in {"adapter.sync","adapter.health"}: raise ValueError("Invalid adapter job")
-        row=fetch_one("SELECT id FROM fastdatagov.connections WHERE key=%s",(key,))
+        row=fetch_one("SELECT id FROM fast_datagov.connections WHERE key=%s",(key,))
         if not row: raise ValueError("Connection does not exist")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM fastdatagov.jobs WHERE kind=%s AND status IN ('queued','running') AND (payload->>'connection_id')::bigint=%s ORDER BY id LIMIT 1",(kind,row["id"])); existing=cursor.fetchone()
+            cursor.execute("SELECT id FROM fast_datagov.jobs WHERE kind=%s AND status IN ('queued','running') AND (payload->>'connection_id')::bigint=%s ORDER BY id LIMIT 1",(kind,row["id"])); existing=cursor.fetchone()
             if existing:return existing[0]
-            cursor.execute("INSERT INTO fastdatagov.jobs (kind,payload) VALUES (%s,jsonb_build_object('connection_id',%s::bigint)) RETURNING id",(kind,row["id"])); job_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'adapter.job_queued','connection',%s)",(actor.subject,key)); connection.commit(); return job_id
+            cursor.execute("INSERT INTO fast_datagov.jobs (kind,payload) VALUES (%s,jsonb_build_object('connection_id',%s::bigint)) RETURNING id",(kind,row["id"])); job_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'adapter.job_queued','connection',%s)",(actor.subject,key)); connection.commit(); return job_id
 
     def principal_aliases(self):
-        return fetch_all("SELECT id,identity_principal_type,identity_key,platform_key,source_principal_key FROM fastdatagov.principal_aliases ORDER BY platform_key,identity_key")
+        return fetch_all("SELECT id,identity_principal_type,identity_key,platform_key,source_principal_key FROM fast_datagov.principal_aliases ORDER BY platform_key,identity_key")
 
     def save_principal_alias(self, actor, identity_principal_type, identity_key, platform_key, source_principal_key):
         if identity_principal_type not in {"user","group"} or not all(v.strip() for v in (identity_key,platform_key,source_principal_key)): raise ValueError("Invalid principal alias")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.principal_aliases (identity_principal_type,identity_key,platform_key,source_principal_key,created_by) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (identity_principal_type,identity_key,platform_key,source_principal_key) DO UPDATE SET created_by=excluded.created_by RETURNING id",(identity_principal_type,identity_key.strip(),platform_key.strip(),source_principal_key.strip(),actor.email)); alias_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'principal.alias_saved','principal_alias',%s)",(actor.subject,str(alias_id))); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.principal_aliases (identity_principal_type,identity_key,platform_key,source_principal_key,created_by) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (identity_principal_type,identity_key,platform_key,source_principal_key) DO UPDATE SET created_by=excluded.created_by RETURNING id",(identity_principal_type,identity_key.strip(),platform_key.strip(),source_principal_key.strip(),actor.email)); alias_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'principal.alias_saved','principal_alias',%s)",(actor.subject,str(alias_id))); connection.commit()
         return next(row for row in self.principal_aliases() if row["id"]==alias_id)
 
     def delete_principal_alias(self,actor,alias_id):
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("DELETE FROM fastdatagov.principal_aliases WHERE id=%s RETURNING id",(alias_id,))
+            cursor.execute("DELETE FROM fast_datagov.principal_aliases WHERE id=%s RETURNING id",(alias_id,))
             if not cursor.fetchone(): raise ValueError("Principal alias does not exist")
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'principal.alias_removed','principal_alias',%s)",(actor.subject,str(alias_id))); connection.commit()
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'principal.alias_removed','principal_alias',%s)",(actor.subject,str(alias_id))); connection.commit()
 
     def queue_tag_writeback(self, actor, asset_id, tags):
         asset=self.get_asset(asset_id,actor)
         if not asset: raise ValueError("Asset does not exist or is not visible")
-        row=fetch_one("SELECT connection_id,external_id FROM fastdatagov.assets WHERE id=%s",(asset_id,))
+        row=fetch_one("SELECT connection_id,external_id FROM fast_datagov.assets WHERE id=%s",(asset_id,))
         if not tags: raise ValueError("At least one native tag is required")
         with connect() as connection, connection.cursor() as cursor:
-            cursor.execute("INSERT INTO fastdatagov.jobs (kind,payload) VALUES ('adapter.tags',%s) RETURNING id",(Jsonb({"connection_id":row["connection_id"],"asset_external_id":row["external_id"],"tags":tags}),)); job_id=cursor.fetchone()[0]
-            cursor.execute("INSERT INTO fastdatagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'adapter.tag_writeback_queued','asset',%s)",(actor.subject,str(asset_id))); connection.commit(); return job_id
+            cursor.execute("INSERT INTO fast_datagov.jobs (kind,payload) VALUES ('adapter.tags',%s) RETURNING id",(Jsonb({"connection_id":row["connection_id"],"asset_external_id":row["external_id"],"tags":tags}),)); job_id=cursor.fetchone()[0]
+            cursor.execute("INSERT INTO fast_datagov.audit_events (actor_subject,action,entity_type,entity_key) VALUES (%s,'adapter.tag_writeback_queued','asset',%s)",(actor.subject,str(asset_id))); connection.commit(); return job_id
 
 
 @lru_cache(maxsize=1)

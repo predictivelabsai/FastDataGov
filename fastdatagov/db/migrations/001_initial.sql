@@ -1,6 +1,6 @@
 -- FastDataGov initial schema. All application SQL must qualify this schema.
 
-CREATE TABLE IF NOT EXISTS fastdatagov.users (
+CREATE TABLE IF NOT EXISTS fast_datagov.users (
     id BIGSERIAL PRIMARY KEY,
     subject TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS fastdatagov.users (
     last_seen_at TIMESTAMPTZ
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.role_bindings (
+CREATE TABLE IF NOT EXISTS fast_datagov.role_bindings (
     id BIGSERIAL PRIMARY KEY,
     principal_type TEXT NOT NULL CHECK (principal_type IN ('user', 'group')),
     principal_key TEXT NOT NULL,
@@ -21,16 +21,16 @@ CREATE TABLE IF NOT EXISTS fastdatagov.role_bindings (
     UNIQUE (principal_type, principal_key, role, scope_type, scope_key)
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.domains (
+CREATE TABLE IF NOT EXISTS fast_datagov.domains (
     id BIGSERIAL PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    parent_id BIGINT REFERENCES fastdatagov.domains(id) ON DELETE SET NULL,
+    parent_id BIGINT REFERENCES fast_datagov.domains(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.platforms (
+CREATE TABLE IF NOT EXISTS fast_datagov.platforms (
     id BIGSERIAL PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
@@ -39,9 +39,9 @@ CREATE TABLE IF NOT EXISTS fastdatagov.platforms (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.connections (
+CREATE TABLE IF NOT EXISTS fast_datagov.connections (
     id BIGSERIAL PRIMARY KEY,
-    platform_id BIGINT NOT NULL REFERENCES fastdatagov.platforms(id),
+    platform_id BIGINT NOT NULL REFERENCES fast_datagov.platforms(id),
     key TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     credential_ref TEXT,
@@ -54,15 +54,15 @@ CREATE TABLE IF NOT EXISTS fastdatagov.connections (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.assets (
+CREATE TABLE IF NOT EXISTS fast_datagov.assets (
     id BIGSERIAL PRIMARY KEY,
-    connection_id BIGINT NOT NULL REFERENCES fastdatagov.connections(id),
+    connection_id BIGINT NOT NULL REFERENCES fast_datagov.connections(id),
     external_id TEXT NOT NULL,
     qualified_name TEXT NOT NULL,
     name TEXT NOT NULL,
     asset_type TEXT NOT NULL,
     platform_key TEXT NOT NULL,
-    domain_id BIGINT REFERENCES fastdatagov.domains(id) ON DELETE SET NULL,
+    domain_id BIGINT REFERENCES fast_datagov.domains(id) ON DELETE SET NULL,
     description TEXT NOT NULL DEFAULT '',
     business_description TEXT NOT NULL DEFAULT '',
     owner_email TEXT,
@@ -81,17 +81,17 @@ CREATE TABLE IF NOT EXISTS fastdatagov.assets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (connection_id, external_id)
 );
-CREATE INDEX IF NOT EXISTS assets_platform_idx ON fastdatagov.assets(platform_key, asset_type);
-CREATE INDEX IF NOT EXISTS assets_domain_idx ON fastdatagov.assets(domain_id);
-CREATE INDEX IF NOT EXISTS assets_quality_idx ON fastdatagov.assets(quality_score);
-CREATE INDEX IF NOT EXISTS assets_search_idx ON fastdatagov.assets USING GIN (
+CREATE INDEX IF NOT EXISTS assets_platform_idx ON fast_datagov.assets(platform_key, asset_type);
+CREATE INDEX IF NOT EXISTS assets_domain_idx ON fast_datagov.assets(domain_id);
+CREATE INDEX IF NOT EXISTS assets_quality_idx ON fast_datagov.assets(quality_score);
+CREATE INDEX IF NOT EXISTS assets_search_idx ON fast_datagov.assets USING GIN (
     to_tsvector('english', coalesce(name, '') || ' ' || coalesce(qualified_name, '') || ' ' ||
         coalesce(description, '') || ' ' || coalesce(business_description, ''))
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.asset_fields (
+CREATE TABLE IF NOT EXISTS fast_datagov.asset_fields (
     id BIGSERIAL PRIMARY KEY,
-    asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
+    asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
     external_id TEXT NOT NULL,
     name TEXT NOT NULL,
     ordinal INTEGER,
@@ -102,9 +102,9 @@ CREATE TABLE IF NOT EXISTS fastdatagov.asset_fields (
     native_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     UNIQUE (asset_id, external_id)
 );
-CREATE INDEX IF NOT EXISTS asset_fields_asset_idx ON fastdatagov.asset_fields(asset_id, ordinal);
+CREATE INDEX IF NOT EXISTS asset_fields_asset_idx ON fast_datagov.asset_fields(asset_id, ordinal);
 
-CREATE TABLE IF NOT EXISTS fastdatagov.tags (
+CREATE TABLE IF NOT EXISTS fast_datagov.tags (
     id BIGSERIAL PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
     label TEXT NOT NULL,
@@ -112,19 +112,19 @@ CREATE TABLE IF NOT EXISTS fastdatagov.tags (
     colour TEXT NOT NULL DEFAULT '#475569'
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.asset_tags (
-    asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
-    tag_id BIGINT NOT NULL REFERENCES fastdatagov.tags(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS fast_datagov.asset_tags (
+    asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES fast_datagov.tags(id) ON DELETE CASCADE,
     source TEXT NOT NULL DEFAULT 'fastdatagov',
     PRIMARY KEY (asset_id, tag_id)
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.glossary_terms (
+CREATE TABLE IF NOT EXISTS fast_datagov.glossary_terms (
     id BIGSERIAL PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     definition TEXT NOT NULL,
-    domain_id BIGINT REFERENCES fastdatagov.domains(id) ON DELETE SET NULL,
+    domain_id BIGINT REFERENCES fast_datagov.domains(id) ON DELETE SET NULL,
     owner_email TEXT,
     status TEXT NOT NULL DEFAULT 'draft',
     version INTEGER NOT NULL DEFAULT 1,
@@ -132,19 +132,19 @@ CREATE TABLE IF NOT EXISTS fastdatagov.glossary_terms (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.asset_terms (
-    asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
-    term_id BIGINT NOT NULL REFERENCES fastdatagov.glossary_terms(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS fast_datagov.asset_terms (
+    asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
+    term_id BIGINT NOT NULL REFERENCES fast_datagov.glossary_terms(id) ON DELETE CASCADE,
     relationship TEXT NOT NULL DEFAULT 'describes',
     PRIMARY KEY (asset_id, term_id)
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.lineage_edges (
+CREATE TABLE IF NOT EXISTS fast_datagov.lineage_edges (
     id BIGSERIAL PRIMARY KEY,
-    source_asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
-    target_asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
-    source_field_id BIGINT REFERENCES fastdatagov.asset_fields(id) ON DELETE CASCADE,
-    target_field_id BIGINT REFERENCES fastdatagov.asset_fields(id) ON DELETE CASCADE,
+    source_asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
+    target_asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
+    source_field_id BIGINT REFERENCES fast_datagov.asset_fields(id) ON DELETE CASCADE,
+    target_field_id BIGINT REFERENCES fast_datagov.asset_fields(id) ON DELETE CASCADE,
     operation TEXT NOT NULL DEFAULT 'transforms',
     evidence_type TEXT NOT NULL CHECK (evidence_type IN ('native', 'query_history', 'inferred', 'manual')),
     confidence NUMERIC(4,3) NOT NULL DEFAULT 1.0,
@@ -152,12 +152,12 @@ CREATE TABLE IF NOT EXISTS fastdatagov.lineage_edges (
     observed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE NULLS NOT DISTINCT (source_asset_id, target_asset_id, source_field_id, target_field_id, operation)
 );
-CREATE INDEX IF NOT EXISTS lineage_source_idx ON fastdatagov.lineage_edges(source_asset_id);
-CREATE INDEX IF NOT EXISTS lineage_target_idx ON fastdatagov.lineage_edges(target_asset_id);
+CREATE INDEX IF NOT EXISTS lineage_source_idx ON fast_datagov.lineage_edges(source_asset_id);
+CREATE INDEX IF NOT EXISTS lineage_target_idx ON fast_datagov.lineage_edges(target_asset_id);
 
-CREATE TABLE IF NOT EXISTS fastdatagov.quality_rules (
+CREATE TABLE IF NOT EXISTS fast_datagov.quality_rules (
     id BIGSERIAL PRIMARY KEY,
-    asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
+    asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     rule_type TEXT NOT NULL,
     expression TEXT NOT NULL,
@@ -171,9 +171,9 @@ CREATE TABLE IF NOT EXISTS fastdatagov.quality_rules (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.quality_runs (
+CREATE TABLE IF NOT EXISTS fast_datagov.quality_runs (
     id BIGSERIAL PRIMARY KEY,
-    rule_id BIGINT NOT NULL REFERENCES fastdatagov.quality_rules(id) ON DELETE CASCADE,
+    rule_id BIGINT NOT NULL REFERENCES fast_datagov.quality_rules(id) ON DELETE CASCADE,
     status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'passed', 'failed', 'error')),
     score NUMERIC(5,2),
     observed_value NUMERIC(18,6),
@@ -183,12 +183,12 @@ CREATE TABLE IF NOT EXISTS fastdatagov.quality_runs (
     completed_at TIMESTAMPTZ,
     evidence JSONB NOT NULL DEFAULT '{}'::jsonb
 );
-CREATE INDEX IF NOT EXISTS quality_runs_rule_idx ON fastdatagov.quality_runs(rule_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS quality_runs_rule_idx ON fast_datagov.quality_runs(rule_id, started_at DESC);
 
-CREATE TABLE IF NOT EXISTS fastdatagov.work_items (
+CREATE TABLE IF NOT EXISTS fast_datagov.work_items (
     id BIGSERIAL PRIMARY KEY,
     kind TEXT NOT NULL CHECK (kind IN ('quality', 'certification', 'metadata', 'access', 'attestation')),
-    asset_id BIGINT REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
+    asset_id BIGINT REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'waiting', 'approved', 'resolved', 'rejected')),
@@ -200,11 +200,11 @@ CREATE TABLE IF NOT EXISTS fastdatagov.work_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS work_items_queue_idx ON fastdatagov.work_items(status, kind, assignee_email);
+CREATE INDEX IF NOT EXISTS work_items_queue_idx ON fast_datagov.work_items(status, kind, assignee_email);
 
-CREATE TABLE IF NOT EXISTS fastdatagov.certifications (
+CREATE TABLE IF NOT EXISTS fast_datagov.certifications (
     id BIGSERIAL PRIMARY KEY,
-    asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
+    asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
     status TEXT NOT NULL,
     certified_by TEXT NOT NULL,
     certified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -212,17 +212,17 @@ CREATE TABLE IF NOT EXISTS fastdatagov.certifications (
     notes TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.usage_rollups (
-    asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS fast_datagov.usage_rollups (
+    asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
     usage_date DATE NOT NULL,
     query_count BIGINT NOT NULL DEFAULT 0,
     distinct_users BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (asset_id, usage_date)
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.sync_runs (
+CREATE TABLE IF NOT EXISTS fast_datagov.sync_runs (
     id BIGSERIAL PRIMARY KEY,
-    connection_id BIGINT NOT NULL REFERENCES fastdatagov.connections(id) ON DELETE CASCADE,
+    connection_id BIGINT NOT NULL REFERENCES fast_datagov.connections(id) ON DELETE CASCADE,
     status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'partial', 'failed')),
     cursor_before JSONB NOT NULL DEFAULT '{}'::jsonb,
     cursor_after JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -234,7 +234,7 @@ CREATE TABLE IF NOT EXISTS fastdatagov.sync_runs (
     completed_at TIMESTAMPTZ
 );
 
-CREATE TABLE IF NOT EXISTS fastdatagov.jobs (
+CREATE TABLE IF NOT EXISTS fast_datagov.jobs (
     id BIGSERIAL PRIMARY KEY,
     kind TEXT NOT NULL,
     payload JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -248,9 +248,9 @@ CREATE TABLE IF NOT EXISTS fastdatagov.jobs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS jobs_claim_idx ON fastdatagov.jobs(status, run_after, id);
+CREATE INDEX IF NOT EXISTS jobs_claim_idx ON fast_datagov.jobs(status, run_after, id);
 
-CREATE TABLE IF NOT EXISTS fastdatagov.audit_events (
+CREATE TABLE IF NOT EXISTS fast_datagov.audit_events (
     id BIGSERIAL PRIMARY KEY,
     actor_subject TEXT NOT NULL,
     action TEXT NOT NULL,
@@ -262,10 +262,10 @@ CREATE TABLE IF NOT EXISTS fastdatagov.audit_events (
     source_ip INET,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS audit_entity_idx ON fastdatagov.audit_events(entity_type, entity_key, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_entity_idx ON fast_datagov.audit_events(entity_type, entity_key, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS fastdatagov.asset_visibility (
-    asset_id BIGINT NOT NULL REFERENCES fastdatagov.assets(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS fast_datagov.asset_visibility (
+    asset_id BIGINT NOT NULL REFERENCES fast_datagov.assets(id) ON DELETE CASCADE,
     principal_type TEXT NOT NULL CHECK (principal_type IN ('user', 'group', 'public')),
     principal_key TEXT NOT NULL,
     privilege TEXT NOT NULL DEFAULT 'discover',

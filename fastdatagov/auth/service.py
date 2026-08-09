@@ -52,7 +52,7 @@ def with_role_bindings(identity: UserIdentity) -> UserIdentity:
     roles={role for role in identity.roles if role in KNOWN_ROLES} or {"consumer"}
     if settings().repository_mode=="postgres":
         try:
-            rows=fetch_all("SELECT role FROM fastdatagov.role_bindings WHERE scope_type='global' AND ((principal_type='user' AND principal_key=%s) OR (principal_type='group' AND principal_key=ANY(%s)))",(identity.email,list(identity.groups)))
+            rows=fetch_all("SELECT role FROM fast_datagov.role_bindings WHERE scope_type='global' AND ((principal_type='user' AND principal_key=%s) OR (principal_type='group' AND principal_key=ANY(%s)))",(identity.email,list(identity.groups)))
             roles.update(row["role"] for row in rows)
         except Exception:
             log.exception("Could not resolve persistent role bindings")
@@ -62,7 +62,7 @@ def with_role_bindings(identity: UserIdentity) -> UserIdentity:
 def persist_user(identity: UserIdentity) -> None:
     if settings().repository_mode!="postgres": return
     with connect() as connection, connection.cursor() as cursor:
-        cursor.execute("INSERT INTO fastdatagov.users (subject,email,display_name,last_seen_at) VALUES (%s,%s,%s,now()) ON CONFLICT (subject) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,last_seen_at=now()",(identity.subject,identity.email,identity.name)); connection.commit()
+        cursor.execute("INSERT INTO fast_datagov.users (subject,email,display_name,last_seen_at) VALUES (%s,%s,%s,now()) ON CONFLICT (subject) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,last_seen_at=now()",(identity.subject,identity.email,identity.name)); connection.commit()
 
 
 def store_identity(session: dict, identity: UserIdentity) -> None:
