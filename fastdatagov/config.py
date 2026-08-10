@@ -22,8 +22,14 @@ class Settings(BaseSettings):
         serialization_alias="DB_URL",
     )
     database_schema: str = Field(default="fast_datagov", alias="DB_SCHEMA")
-    database_pool_min: int = Field(default=1,alias="DATABASE_POOL_MIN")
-    database_pool_max: int = Field(default=10,alias="DATABASE_POOL_MAX")
+    database_pool_min: int = Field(default=0, alias="DATABASE_POOL_MIN")
+    database_pool_max: int = Field(default=3, alias="DATABASE_POOL_MAX")
+    database_pool_timeout: float = Field(default=10, alias="DATABASE_POOL_TIMEOUT")
+    database_pool_recycle: float = Field(default=1800, alias="DATABASE_POOL_RECYCLE")
+    database_pool_max_idle: float = Field(default=300, alias="DATABASE_POOL_MAX_IDLE")
+    database_application_name: str = Field(
+        default="fastdatagov", alias="DATABASE_APPLICATION_NAME"
+    )
 
     auth_mode: str = Field(default="dev", alias="AUTH_MODE")
     dev_auth_enabled: bool = Field(default=True, alias="DEV_AUTH_ENABLED")
@@ -81,7 +87,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_pool(self):
-        if self.database_pool_min<0 or self.database_pool_max<1 or self.database_pool_min>self.database_pool_max:
+        if (
+            self.database_pool_min < 0
+            or self.database_pool_max < 1
+            or self.database_pool_min > self.database_pool_max
+        ):
             raise ValueError("DATABASE_POOL_MIN/MAX define an invalid pool range")
         return self
 
