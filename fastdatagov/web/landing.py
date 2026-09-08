@@ -112,6 +112,7 @@ def _public_nav(identity: UserIdentity | None = None):
             A("Features", href="/features"),
             A("How we compare", href="/compare"),
             A("Architecture", href="/#architecture"),
+            A("Pricing", href="/#pricing"),
             A("Partners", href="/#partners"),
             A("GitHub", href="https://github.com/predictivelabsai/FastDataGov", target="_blank", rel="noreferrer"),
             aria_label="Public navigation",
@@ -163,6 +164,18 @@ def _comparison_table(compact: bool = False):
         cls="comparison-scroll",
     )
 
+
+
+def _pricing_section():
+    return Section(
+        Div(Span("Pricing", cls="eyebrow"), H2("Simple pricing for every FastSME product."), P("Every Fast* product uses the same two options: bring your own cloud for free, or host with us for €1 per month."), cls="section-lead"),
+        Div(
+            Article(Span("BYOC", cls="eyebrow"), H3("Bring Your Own Cloud"), P(Strong("Free")), P("Self-host on your own infrastructure or cloud. Full control of data and upgrades. No per-seat platform fee."), cls="partner-card"),
+            Article(Span("Hosted", cls="eyebrow"), H3("Host with us"), P(Strong("€1 / month")), P("We run the product for you on FastSME-managed infrastructure. €1 per product per month."), cls="partner-card"),
+            cls="partner-grid",
+        ),
+        id="pricing", cls="landing-section partner-section",
+    )
 
 def _partner_section():
     return Section(
@@ -234,6 +247,7 @@ def landing_page(identity: UserIdentity | None = None):
                     Div(A("Read the full source-linked comparison →", href="/compare", cls="inline-link"), cls="section-action"),
                     cls="landing-section comparison-section",
                 ),
+                _pricing_section(),
                 _partner_section(),
                 Section(Span("Built for accountable reuse", cls="eyebrow"), H2("Make trusted data the easiest data to find."), A(primary_label, href=primary_href, cls="button button-primary"), cls="landing-cta"),
             ),
@@ -256,7 +270,7 @@ def features_page(identity: UserIdentity | None = None):
             Main(
                 Section(Span("Features & availability", cls="eyebrow"), H1("One place to discover, trust, and govern data."), P("Available means implemented in the core platform. Pilot-ready identifies the production-capable Snowflake adapter. Contract-ready means the interface is complete while tenant transport still requires implementation."), Div(Span(Strong("9"), " core capabilities"), Span(Strong("1"), " pilot-ready adapter"), Span(Strong("2"), " contract-ready adapters"), cls="feature-summary"), cls="public-page-hero"),
                 Section(Div(*cards, cls="feature-catalog"), cls="public-page-section tint-section"),
-                Section(Div(Strong("Pricing: Free and MIT-licensed. "), "Infrastructure, implementation, support, and source-platform usage can still carry costs."), cls="public-note"),
+                Section(Div(Strong("Pricing: BYOC Free · Host with us €1 / month. "), "Self-host for free, or host with us for €1 per product per month. Infrastructure and source-platform usage can still carry costs."), cls="public-note"),
             ),
             _public_footer(),
             cls="landing-body",
